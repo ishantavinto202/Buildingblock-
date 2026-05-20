@@ -18,7 +18,6 @@ export function initialState(canvasHeight: number): GameState {
       },
     ],
     nextImageIndex: 1 % BLOCK_IMAGE_COUNT,
-    score: 0,
     lastLandingWasPerfect: false,
   };
 }
@@ -47,7 +46,7 @@ export function landBlock(state: GameState, fallingCX: number): LandResult {
   const topBlock = state.stack[state.stack.length - 1];
   const overlap = computeOverlap(fallingCX, topBlock.cx);
 
-  const isMiss = fallingCX < topBlock.cx - BLOCK_W / 2 || fallingCX > topBlock.cx + BLOCK_W / 2;
+  const isMiss = overlap === 0;
 
   if (isMiss) {
     return {
@@ -70,7 +69,6 @@ export function landBlock(state: GameState, fallingCX: number): LandResult {
     phase: 'idle',
     stack: [...state.stack, newBlock],
     nextImageIndex: (state.nextImageIndex + 1) % BLOCK_IMAGE_COUNT,
-    score: state.score + pointsAwarded,
     lastLandingWasPerfect: perfect,
   };
 

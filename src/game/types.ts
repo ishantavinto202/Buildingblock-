@@ -13,7 +13,6 @@ export interface GameState {
   stack: PlacedBlock[];
   /** Image index for the next falling block */
   nextImageIndex: number;
-  score: number;
   lastLandingWasPerfect: boolean;
 }
 

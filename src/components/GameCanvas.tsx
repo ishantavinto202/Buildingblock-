@@ -15,7 +15,7 @@ import { Platform } from 'react-native';
 import { SharedValue } from 'react-native-reanimated';
 import { GameState } from '../game/types';
 import { ParticlePool } from '../effects/ParticlePool';
-import { BLOCK_W, BLOCK_H, PARTICLE_POOL_SIZE, PARTICLE_DURATION_MS } from '../game/constants';
+import { BLOCK_W, BLOCK_H, PARTICLE_POOL_SIZE, PARTICLE_DURATION_MS, POINTS_LAND, POINTS_PERFECT_BONUS } from '../game/constants';
 
 const BLOCK_REQUIRES = [
   require('../../assets/images/blocks/block_0.png'),
@@ -45,6 +45,7 @@ function makeStarPath(r: number) {
 }
 
 const STAR_PATH = makeStarPath(6);
+const PERFECT_SCORE_LABEL = `+${POINTS_LAND + POINTS_PERFECT_BONUS}`;
 
 export interface GameCanvasProps {
   width: number;
@@ -200,7 +201,7 @@ export function GameCanvas({
 
       {/* Floating +3 score text */}
       <Group transform={scoreTextTransform} opacity={scoreTextOpacityDerived}>
-        <Text text="+3" x={0} y={0} color="#FFD700" font={scoreFont} />
+        <Text text={PERFECT_SCORE_LABEL} x={0} y={0} color="#FFD700" font={scoreFont} />
       </Group>
     </Canvas>
   );

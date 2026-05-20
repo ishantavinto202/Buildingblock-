@@ -112,7 +112,6 @@ export function useTowerGame(): TowerGameHook {
 
   // Landing callback — called from UI thread via runOnJS
   const handleLand = useCallback((fallingCX: number) => {
-    isLanding.value = false;  // reset lock so next block can land
     const state = gameStateRef.current;
     if (state.phase !== 'dropping') return;
 
@@ -166,16 +165,17 @@ export function useTowerGame(): TowerGameHook {
     }
 
     setGameState(nextState);
-  }, [addPoints, particlePool, particleActives, particleTs, swayOffset, towerSwayOffset, scoreTextY, scoreTextOpacity, isLanding]);
+  }, [addPoints, particlePool, particleActives, particleTs, swayOffset, towerSwayOffset, scoreTextY, scoreTextOpacity]);
 
   // Auto-transition from idle to dropping
   useEffect(() => {
     if (gameState.phase === 'idle') {
       fallY.value = SPAWN_Y;
+      isLanding.value = false;
       startSway(gameState.stack.length);
       setGameState((prev) => ({ ...prev, phase: 'dropping' }));
     }
-  }, [gameState.phase, gameState.stack.length, fallY, startSway]);
+  }, [gameState.phase, gameState.stack.length, fallY, isLanding, startSway]);
 
   // Frame callback: fall physics + collision — reads only shared values (worklet-safe)
   useFrameCallback((frameInfo) => {
