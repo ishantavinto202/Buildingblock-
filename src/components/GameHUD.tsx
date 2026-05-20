@@ -26,7 +26,7 @@ export function GameHUD({ isGameOver, onRestart, finalScore }: GameHUDProps) {
         <View style={styles.overlay}>
           <Text style={styles.gameOverTitle}>GAME OVER</Text>
           <Text style={styles.finalScore}>{finalScore ?? score}</Text>
-          {highScore > 0 && (
+          {hasLoadedHighScore && highScore > 0 && (
             <Text style={styles.bestScore}>
               {finalScore === highScore ? '🏆 NEW BEST!' : `BEST  ${highScore}`}
             </Text>
