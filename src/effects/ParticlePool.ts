@@ -26,14 +26,13 @@ export class ParticlePool {
       if (!this.slots[i].active) {
         const angle = (Math.PI * 2 * activated.length) / count + (Math.random() * 0.5 - 0.25);
         const speed = PARTICLE_SPEED_MIN + Math.random() * (PARTICLE_SPEED_MAX - PARTICLE_SPEED_MIN);
-        this.slots[i] = {
-          active: true,
-          startX: cx,
-          startY: cy,
-          angle,
-          speed,
-          color: PARTICLE_COLORS[activated.length % PARTICLE_COLORS.length],
-        };
+        const slot = this.slots[i];
+        slot.active = true;
+        slot.startX = cx;
+        slot.startY = cy;
+        slot.angle = angle;
+        slot.speed = speed;
+        slot.color = PARTICLE_COLORS[activated.length % PARTICLE_COLORS.length];
         activated.push(i);
       }
     }
