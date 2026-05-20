@@ -34,13 +34,13 @@ export const PARTICLE_SPEED_MIN = 60;
 export const PARTICLE_SPEED_MAX = 140;
 
 /** Particle star colors */
-export const PARTICLE_COLORS = ['#FFD700', '#FFFFFF', '#FFF3A3', '#FFE566'];
+export const PARTICLE_COLORS = ['#FFD700', '#FFFFFF', '#FFF3A3', '#FFE566'] as const;
 
 /** Tower sway amplitude is this fraction of the falling block amplitude */
 export const TOWER_SWAY_FRACTION = 0.3;
 
 /** withSpring config used for tower sway */
-export const TOWER_SPRING = { damping: 8, stiffness: 60 };
+export const TOWER_SPRING = { damping: 8, stiffness: 60 } as const;
 
 /** Points for a plain landing */
 export const POINTS_LAND = 1;
