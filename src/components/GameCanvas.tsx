@@ -9,8 +9,9 @@ import {
   Text,
   useDerivedValue,
   Fill,
-  useFont,
+  matchFont,
 } from '@shopify/react-native-skia';
+import { Platform } from 'react-native';
 import { SharedValue } from 'react-native-reanimated';
 import { GameState } from '../game/types';
 import { ParticlePool } from '../effects/ParticlePool';
@@ -83,11 +84,11 @@ function ParticleItem({ particleT, particleActive, startX, startY, angle, speed,
       { translateY: startY + dy },
       { scale },
     ];
-  });
+  }, [startX, startY, angle, speed]);
 
   const opacity = useDerivedValue(() =>
     particleActive.value ? Math.max(0, 1 - particleT.value) : 0
-  );
+  , []);
 
   return (
     <Group transform={transform} opacity={opacity}>
@@ -109,6 +110,11 @@ export function GameCanvas({
   scoreTextY,
   scoreTextOpacity,
 }: GameCanvasProps) {
+  const scoreFont = matchFont(
+    { fontFamily: Platform.OS === 'ios' ? 'Helvetica' : 'sans-serif', fontWeight: 'bold' },
+    24,
+  );
+
   // Load all 8 images at top level (hooks)
   const img0 = useImage(BLOCK_REQUIRES[0]);
   const img1 = useImage(BLOCK_REQUIRES[1]);
@@ -194,7 +200,7 @@ export function GameCanvas({
 
       {/* Floating +3 score text */}
       <Group transform={scoreTextTransform} opacity={scoreTextOpacityDerived}>
-        <Text text="+3" x={0} y={0} color="#FFD700" font={null} />
+        <Text text="+3" x={0} y={0} color="#FFD700" font={scoreFont} />
       </Group>
     </Canvas>
   );
