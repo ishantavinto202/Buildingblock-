@@ -52,16 +52,21 @@ export function useTowerGame(): TowerGameHook {
   const gameStateRef = useRef(gameState);
   gameStateRef.current = gameState;
 
-  // Keep canvas size in a ref for the frame callback worklet
-  const canvasSizeRef = useRef(canvasSize);
-  canvasSizeRef.current = canvasSize;
-
   // Shared values
   const swayOffset = useSharedValue(0);
   const fallY = useSharedValue(SPAWN_Y);
   const towerSwayOffset = useSharedValue(0);
   const scoreTextY = useSharedValue(0);
   const scoreTextOpacity = useSharedValue(0);
+
+  // Shared values that mirror JS state for safe worklet access
+  const gamePhaseShared = useSharedValue<string>(gameState.phase);
+  const topBlockYShared = useSharedValue<number>(0);
+  const stackLengthShared = useSharedValue<number>(0);
+  const canvasWidthShared = useSharedValue<number>(390);
+
+  // UI-thread landing lock — prevents multiple handleLand calls per drop
+  const isLanding = useSharedValue(false);
 
   // Per-particle animation values — fixed pool size, hooks called at top level
   const particleTs: SharedValue<number>[] = [];
@@ -93,8 +98,21 @@ export function useTowerGame(): TowerGameHook {
     );
   }, [swayOffset]);
 
+  // Keep phase/stack info synced to shared values for worklet access
+  useEffect(() => {
+    gamePhaseShared.value = gameState.phase;
+    const topBlock = gameState.stack[gameState.stack.length - 1];
+    topBlockYShared.value = topBlock.y;
+    stackLengthShared.value = gameState.stack.length;
+  }, [gameState, gamePhaseShared, topBlockYShared, stackLengthShared]);
+
+  useEffect(() => {
+    canvasWidthShared.value = canvasSize.width;
+  }, [canvasSize.width, canvasWidthShared]);
+
   // Landing callback — called from UI thread via runOnJS
   const handleLand = useCallback((fallingCX: number) => {
+    isLanding.value = false;  // reset lock so next block can land
     const state = gameStateRef.current;
     if (state.phase !== 'dropping') return;
 
@@ -148,7 +166,7 @@ export function useTowerGame(): TowerGameHook {
     }
 
     setGameState(nextState);
-  }, [addPoints, particlePool, particleActives, particleTs, swayOffset, towerSwayOffset, scoreTextY, scoreTextOpacity]);
+  }, [addPoints, particlePool, particleActives, particleTs, swayOffset, towerSwayOffset, scoreTextY, scoreTextOpacity, isLanding]);
 
   // Auto-transition from idle to dropping
   useEffect(() => {
@@ -159,21 +177,21 @@ export function useTowerGame(): TowerGameHook {
     }
   }, [gameState.phase, gameState.stack.length, fallY, startSway]);
 
-  // Frame callback: fall physics + collision
+  // Frame callback: fall physics + collision — reads only shared values (worklet-safe)
   useFrameCallback((frameInfo) => {
     'worklet';
-    const state = gameStateRef.current;
-    if (state.phase !== 'dropping') return;
+    if (gamePhaseShared.value !== 'dropping') return;
 
     const dt = (frameInfo.timeSincePreviousFrame ?? 16.67) / 16.67;
-    const speed = getFallSpeed(state.stack.length) * dt;
+    const speed = getFallSpeed(stackLengthShared.value) * dt;
     fallY.value = fallY.value + speed;
 
-    const topBlock = state.stack[state.stack.length - 1];
     const fallingBottom = fallY.value + BLOCK_H;
-    if (fallingBottom >= topBlock.y) {
-      fallY.value = topBlock.y - BLOCK_H;
-      const fallingCX = canvasSizeRef.current.width / 2 + swayOffset.value;
+    if (fallingBottom >= topBlockYShared.value) {
+      if (isLanding.value) return;
+      isLanding.value = true;
+      fallY.value = topBlockYShared.value - BLOCK_H;
+      const fallingCX = canvasWidthShared.value / 2 + swayOffset.value;
       runOnJS(handleLand)(fallingCX);
     }
   }, true);
@@ -182,11 +200,11 @@ export function useTowerGame(): TowerGameHook {
     const state = gameStateRef.current;
     if (state.phase === 'game_over') {
       cancelAnimation(swayOffset);
-      const next = resetState(canvasSizeRef.current.width, canvasSizeRef.current.height);
+      const next = resetState(canvasSize.width, canvasSize.height);
       resetScore();
       setGameState(next);
     }
-  }, [resetScore, swayOffset]);
+  }, [resetScore, swayOffset, canvasSize]);
 
   const onLayout = useCallback((w: number, h: number) => {
     setCanvasSize({ width: w, height: h });
