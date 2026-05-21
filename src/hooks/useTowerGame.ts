@@ -17,7 +17,7 @@ import {
 } from '../game/cameraShake';
 import { spawnWorldYForTower } from '../game/coordinates';
 import { freezeReanimatedAnimations } from '../game/freezeAnimations';
-import { computeTowerSwayAngleRad } from '../game/towerSway';
+import { computeTowerMaxLeanRadWorklet } from '../game/towerSway';
 import { ParticlePool } from '../effects/ParticlePool';
 import {
   BLOCK_H,
@@ -30,8 +30,15 @@ import {
   CAMERA_RESET_MS,
 } from '../game/constants';
 import { getSwayConfig } from '../game/difficulty';
-import { applySwayPhaseJitter, getGlobalSwayAnchorCx } from '../game/swayAnchor';
+import { getGlobalSwayAnchorCx } from '../game/coordinates';
 import {
+  computeTowerLeanFromPingPongWorklet,
+  rescaleSwayOffsetForAmplitude,
+  spawnDirectionToCode,
+  spawnSwayOffset,
+} from '../game/swayMotion';
+import {
+  getSwayConfigWorklet,
   LOOP_DROPPING,
   LOOP_IDLE,
   LOOP_STOPPED,
@@ -111,7 +118,6 @@ export function useTowerGame(): TowerGameHook {
   const towerSwayAngle = useSharedValue(0);
   const towerPivotCx = useSharedValue(0);
   const towerPivotY = useSharedValue(0);
-  const towerSwayElapsedMs = useSharedValue(0);
   const cameraOffsetY = useSharedValue(0);
   const cameraShakeX = useSharedValue(0);
   const cameraShakeY = useSharedValue(0);
@@ -121,6 +127,10 @@ export function useTowerGame(): TowerGameHook {
   const isPausedShared = useSharedValue(0);
   const loopPhase = useSharedValue<number>(LOOP_IDLE);
   const swayElapsedMs = useSharedValue(0);
+  /** 1 = ltr, -1 = rtl — synced with gameState.spawnDirection */
+  const spawnDirectionShared = useSharedValue(1);
+  /** 1 = moving right, -1 = moving left — bounces at lane edges */
+  const traverseSignShared = useSharedValue(1);
   const dropSwayOffset = useSharedValue(0);
   const isLandingFlag = useSharedValue(0);
 
@@ -224,8 +234,17 @@ export function useTowerGame(): TowerGameHook {
     const cameraTarget = cameraComputeTarget(canvasHeightShared.value, towerTopWorldY.value);
     cameraOffsetY.value = cameraStep(cameraOffsetY.value, cameraTarget, deltaMs);
 
-    towerSwayElapsedMs.value += deltaMs;
     if (loopPhase.value === LOOP_TIPPING) {
+      const stackH = stackLengthShared.value;
+      const canvasW = canvasWidthShared.value;
+      const { amplitude: leanAmplitude } = getSwayConfigWorklet(stackH, canvasW);
+      towerSwayAngle.value = computeTowerLeanFromPingPongWorklet(
+        computeTowerMaxLeanRadWorklet(stackH),
+        swayOffset.value,
+        leanAmplitude,
+        traverseSignShared.value,
+      );
+
       const tip = tickTipFrame(
         tipBlockCx.value,
         tipBlockY.value,
@@ -250,14 +269,8 @@ export function useTowerGame(): TowerGameHook {
       return;
     }
 
-    towerSwayAngle.value = computeTowerSwayAngleRad(
-      stackLengthShared.value,
-      canvasWidthShared.value,
-      towerSwayElapsedMs.value,
-    );
-
     const result = tickGameFrame(
-      loopPhase.value as 0 | 1 | 2,
+      loopPhase.value as 0 | 1 | 2 | 3,
       stackLengthShared.value,
       towerTopWorldY.value,
       canvasWidthShared.value,
@@ -266,16 +279,28 @@ export function useTowerGame(): TowerGameHook {
       swayOffset.value,
       dropSwayOffset.value,
       swayElapsedMs.value,
+      traverseSignShared.value,
       isLandingFlag.value === 1,
       deltaMs,
     );
 
     loopPhase.value = result.phase;
     swayOffset.value = result.swayOffset;
+    traverseSignShared.value = result.traverseSign;
     fallY.value = result.fallY;
     dropSwayOffset.value = result.dropSwayOffset;
     swayElapsedMs.value = result.swayElapsedMs;
     isLandingFlag.value = result.isLanding ? 1 : 0;
+
+    const stackH = stackLengthShared.value;
+    const canvasW = canvasWidthShared.value;
+    const { amplitude: leanAmplitude } = getSwayConfigWorklet(stackH, canvasW);
+    towerSwayAngle.value = computeTowerLeanFromPingPongWorklet(
+      computeTowerMaxLeanRadWorklet(stackH),
+      result.swayOffset,
+      leanAmplitude,
+      result.traverseSign,
+    );
 
     if (result.shouldLand) {
       runOnJS(onLandFromWorklet)(result.fallingCX);
@@ -409,17 +434,23 @@ export function useTowerGame(): TowerGameHook {
         );
       }
 
-      const newStackHeight = nextState.stack.length;
-      const { halfPeriod } = getSwayConfig(newStackHeight, canvasWidthShared.value);
-
       const topBlock = nextState.stack[nextState.stack.length - 1];
-      const base = nextState.stack[0];
-      syncTowerPivot(base.cx, base.y);
+      const canvasW = canvasWidthShared.value;
+      const oldSway = getSwayConfig(state.stack.length, canvasW);
+      const newSway = getSwayConfig(nextState.stack.length, canvasW);
+      if (newSway.amplitude !== oldSway.amplitude) {
+        swayOffset.value = rescaleSwayOffsetForAmplitude(
+          swayOffset.value,
+          oldSway.amplitude,
+          newSway.amplitude,
+        );
+      }
+
       towerTopWorldY.value = topBlock.y;
       stackLengthShared.value = nextState.stack.length;
       loopPhase.value = LOOP_IDLE;
-      swayAnchorCx.value = getGlobalSwayAnchorCx(canvasWidthShared.value);
-      swayElapsedMs.value = applySwayPhaseJitter(swayElapsedMs.value, halfPeriod);
+      swayAnchorCx.value = getGlobalSwayAnchorCx(canvasW);
+      spawnDirectionShared.value = spawnDirectionToCode(nextState.spawnDirection);
       isLandingFlag.value = 0;
       fallY.value = spawnWorldYForTower(topBlock.y);
       markIdleStarted();
@@ -435,7 +466,6 @@ export function useTowerGame(): TowerGameHook {
       particleTs,
       cameraShakeX,
       cameraShakeY,
-      syncTowerPivot,
       scoreTextY,
       scoreTextOpacity,
       deactivateParticle,
@@ -447,6 +477,8 @@ export function useTowerGame(): TowerGameHook {
       swayOffset,
       fallY,
       swayAnchorCx,
+      spawnDirectionShared,
+      traverseSignShared,
       markIdleStarted,
       endGameOver,
       frameCallback,
@@ -498,14 +530,14 @@ export function useTowerGame(): TowerGameHook {
       canvasHeightShared.value = h;
       swayAnchorCx.value = getGlobalSwayAnchorCx(w);
       loopPhase.value = LOOP_IDLE;
-      const { halfPeriod } = getSwayConfig(next.stack.length, w);
-      swayElapsedMs.value = applySwayPhaseJitter(0, halfPeriod);
+      spawnDirectionShared.value = spawnDirectionToCode(next.spawnDirection);
+      traverseSignShared.value = spawnDirectionShared.value;
+      swayElapsedMs.value = 0;
+      const { amplitude } = getSwayConfig(next.stack.length, w);
+      swayOffset.value = spawnSwayOffset(amplitude, next.spawnDirection);
       isLandingFlag.value = 0;
       dropSwayOffset.value = 0;
       fallY.value = spawnWorldYForTower(topBlock.y);
-      swayOffset.value = 0;
-      towerSwayAngle.value = 0;
-      towerSwayElapsedMs.value = 0;
       tipBlockCx.value = 0;
       tipBlockY.value = 0;
       tipBlockAngle.value = 0;
@@ -533,6 +565,8 @@ export function useTowerGame(): TowerGameHook {
       canvasWidthShared,
       canvasHeightShared,
       swayAnchorCx,
+      spawnDirectionShared,
+      traverseSignShared,
       loopPhase,
       swayElapsedMs,
       isLandingFlag,
@@ -540,7 +574,6 @@ export function useTowerGame(): TowerGameHook {
       fallY,
       swayOffset,
       towerSwayAngle,
-      towerSwayElapsedMs,
       cameraShakeX,
       cameraShakeY,
       syncTowerPivot,
@@ -637,13 +670,13 @@ export function useTowerGame(): TowerGameHook {
         cameraOffsetY.value = 0;
         swayAnchorCx.value = getGlobalSwayAnchorCx(w);
         loopPhase.value = LOOP_IDLE;
-        const { halfPeriod } = getSwayConfig(next.stack.length, w);
-        swayElapsedMs.value = applySwayPhaseJitter(0, halfPeriod);
+        spawnDirectionShared.value = spawnDirectionToCode(next.spawnDirection);
+        traverseSignShared.value = spawnDirectionShared.value;
+        swayElapsedMs.value = 0;
+        const { amplitude } = getSwayConfig(next.stack.length, w);
+        swayOffset.value = spawnSwayOffset(amplitude, next.spawnDirection);
         isLandingFlag.value = 0;
         fallY.value = spawnWorldYForTower(topBlock.y);
-        swayOffset.value = 0;
-        towerSwayAngle.value = 0;
-        towerSwayElapsedMs.value = 0;
         cameraShakeX.value = 0;
         cameraShakeY.value = 0;
         syncTowerPivot(next.stack[0].cx, next.stack[0].y);
@@ -659,6 +692,8 @@ export function useTowerGame(): TowerGameHook {
       towerTopWorldY,
       stackLengthShared,
       swayAnchorCx,
+      spawnDirectionShared,
+      traverseSignShared,
       loopPhase,
       swayElapsedMs,
       isLandingFlag,
@@ -667,7 +702,6 @@ export function useTowerGame(): TowerGameHook {
       markIdleStarted,
       syncTowerPivot,
       towerSwayAngle,
-      towerSwayElapsedMs,
       cameraShakeX,
       cameraShakeY,
     ],

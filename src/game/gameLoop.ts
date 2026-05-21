@@ -1,9 +1,6 @@
-import { BLOCK_H, BLOCK_W, SPAWN_ABOVE_TOWER_PX, SWAY_EDGE_INSET_PX } from './constants';
-
-function spawnYWorklet(towerTopWorldY: number): number {
-  'worklet';
-  return towerTopWorldY - BLOCK_H - SPAWN_ABOVE_TOWER_PX;
-}
+import { BLOCK_H, BLOCK_W } from './constants';
+import { computeSpawnWorldY, getMaxSwayAmplitudePxWorklet } from './coordinates';
+import { tickPingPongSwayWorklet } from './swayMotion';
 
 /** 0 = swaying (idle), 1 = falling, 2 = stopped, 3 = tipping off */
 export type LoopPhaseCode = 0 | 1 | 2 | 3;
@@ -16,6 +13,7 @@ export const LOOP_TIPPING = 3 as const;
 export interface TickResult {
   phase: LoopPhaseCode;
   swayOffset: number;
+  traverseSign: number;
   fallY: number;
   dropSwayOffset: number;
   swayElapsedMs: number;
@@ -28,12 +26,6 @@ export interface TickResult {
 const SWAY_BP_HEIGHT = [0, 4, 8, 12, 16, 20] as const;
 const SWAY_BP_REACH = [0.86, 0.9, 0.93, 0.96, 0.98, 1.0] as const;
 const SWAY_BP_HALF = [950, 880, 780, 680, 580, 500] as const;
-
-function maxSwayAmplitudeWorklet(canvasWidth: number): number {
-  'worklet';
-  if (canvasWidth <= 0) return 0;
-  return Math.max(0, canvasWidth / 2 - BLOCK_W / 2 - SWAY_EDGE_INSET_PX);
-}
 
 function lerpWorklet(a: number, b: number, t: number): number {
   'worklet';
@@ -72,14 +64,14 @@ function getSwayHalfPeriodWorklet(stackHeight: number): number {
   return SWAY_BP_HALF[last];
 }
 
-function getSwayConfigWorklet(
+export function getSwayConfigWorklet(
   stackHeight: number,
   canvasWidth: number,
 ): { amplitude: number; halfPeriod: number } {
   'worklet';
   const reach = getSwayReachWorklet(stackHeight);
   return {
-    amplitude: maxSwayAmplitudeWorklet(canvasWidth) * reach,
+    amplitude: getMaxSwayAmplitudePxWorklet(canvasWidth) * reach,
     halfPeriod: getSwayHalfPeriodWorklet(stackHeight),
   };
 }
@@ -104,6 +96,7 @@ export function tickGameFrame(
   swayOffset: number,
   dropSwayOffset: number,
   swayElapsedMs: number,
+  traverseSign: number,
   isLanding: boolean,
   deltaMs: number,
 ): TickResult {
@@ -112,15 +105,20 @@ export function tickGameFrame(
 
   if (phase === LOOP_IDLE) {
     const { amplitude, halfPeriod } = getSwayConfigWorklet(stackHeight, canvasWidth);
-    const elapsed = swayElapsedMs + deltaMs;
-    const periodMs = halfPeriod * 2;
-    const sway = amplitude * Math.sin((2 * Math.PI * elapsed) / periodMs);
+    const ping = tickPingPongSwayWorklet(
+      swayOffset,
+      traverseSign,
+      amplitude,
+      halfPeriod,
+      deltaMs,
+    );
     return {
       phase: LOOP_IDLE,
-      swayOffset: sway,
-      fallY: spawnYWorklet(towerTopWorldY),
+      swayOffset: ping.swayOffset,
+      traverseSign: ping.traverseSign,
+      fallY: computeSpawnWorldY(towerTopWorldY),
       dropSwayOffset,
-      swayElapsedMs: elapsed,
+      swayElapsedMs: swayElapsedMs + deltaMs,
       isLanding: false,
       shouldLand: false,
       fallingCX: 0,
@@ -138,6 +136,7 @@ export function tickGameFrame(
         return {
           phase: LOOP_DROPPING,
           swayOffset: lockedSway,
+          traverseSign,
           fallY: landingWorldY,
           dropSwayOffset: lockedSway,
           swayElapsedMs,
@@ -149,6 +148,7 @@ export function tickGameFrame(
       return {
         phase: LOOP_DROPPING,
         swayOffset: lockedSway,
+        traverseSign,
         fallY: landingWorldY,
         dropSwayOffset: lockedSway,
         swayElapsedMs,
@@ -161,6 +161,7 @@ export function tickGameFrame(
     return {
       phase: LOOP_DROPPING,
       swayOffset: lockedSway,
+      traverseSign,
       fallY: nextFallY,
       dropSwayOffset: lockedSway,
       swayElapsedMs,
@@ -173,7 +174,8 @@ export function tickGameFrame(
   return {
     phase: LOOP_STOPPED,
     swayOffset: 0,
-    fallY: spawnYWorklet(towerTopWorldY),
+    traverseSign: 1,
+    fallY: computeSpawnWorldY(towerTopWorldY),
     dropSwayOffset: 0,
     swayElapsedMs: 0,
     isLanding: false,

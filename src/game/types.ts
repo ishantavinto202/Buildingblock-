@@ -1,5 +1,8 @@
 export type GamePhase = 'idle' | 'dropping' | 'tipping' | 'game_over';
 
+/** Which side the active block spawns on before crossing the lane */
+export type SpawnDirection = 'ltr' | 'rtl';
+
 export interface PlacedBlock {
   /** Horizontal center in world/canvas X */
   cx: number;
@@ -14,6 +17,8 @@ export interface GameState {
   /** Image index for the next falling block */
   nextImageIndex: number;
   lastLandingWasPerfect: boolean;
+  /** Next active block crosses left→right or right→left */
+  spawnDirection: SpawnDirection;
 }
 
 export interface SwayConfig {

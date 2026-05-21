@@ -1,11 +1,6 @@
 import { SwayConfig } from './types';
-import {
-  BLOCK_W,
-  FALL_SPEED_INITIAL,
-  FALL_SPEED_INCREMENT,
-  FALL_SPEED_MAX,
-  SWAY_EDGE_INSET_PX,
-} from './constants';
+import { FALL_SPEED_INITIAL, FALL_SPEED_INCREMENT, FALL_SPEED_MAX } from './constants';
+import { getMaxSwayAmplitudePx } from './coordinates';
 
 interface SwayBreakpoint {
   height: number;
@@ -26,15 +21,6 @@ export const SWAY_BREAKPOINTS: SwayBreakpoint[] = [
 
 function lerp(a: number, b: number, t: number): number {
   return a + (b - a) * t;
-}
-
-/**
- * Max horizontal sway (px) from center so block edges stay inside the screen.
- * centerX = anchor + sway → edges at anchor ± sway ± BLOCK_W/2
- */
-export function getMaxSwayAmplitudePx(canvasWidth: number): number {
-  if (canvasWidth <= 0) return 0;
-  return Math.max(0, canvasWidth / 2 - BLOCK_W / 2 - SWAY_EDGE_INSET_PX);
 }
 
 export function getSwayReachFraction(stackHeight: number): number {

@@ -3,7 +3,7 @@ export const BLOCK_W = 80;
 /** Logical height of every block in canvas pixels */
 export const BLOCK_H = 56;
 /** Gap in world px between tower top and the next block spawn (top edge) */
-export const SPAWN_ABOVE_TOWER_PX = 16;
+export const SPAWN_ABOVE_TOWER_PX = 28;
 /** @deprecated Screen-fixed spawn — use computeSpawnWorldY(towerTop) instead */
 export const SPAWN_SCREEN_Y = 72;
 /** @deprecated Use SPAWN_ABOVE_TOWER_PX — kept for docs */
@@ -81,5 +81,5 @@ export const CAMERA_RESET_MS = 450;
 /** Minimum time (ms) the moving block must sway before the player can drop */
 export const MIN_DROP_DELAY_MS = 320;
 
-/** Inset from screen edges so the block stays fully visible at max sway */
-export const SWAY_EDGE_INSET_PX = 12;
+/** >1 = faster horizontal ping-pong (same bounds and difficulty curve) */
+export const SWAY_HORIZONTAL_SPEED_MULT = 1.28;

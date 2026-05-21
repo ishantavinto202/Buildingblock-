@@ -7,6 +7,7 @@ import {
   POINTS_LAND,
   POINTS_PERFECT_BONUS,
 } from './constants';
+import { flipSpawnDirection } from './swayMotion';
 import { GameState, PlacedBlock, LandResult } from './types';
 
 const GROUND_Y_OFFSET = 80;
@@ -34,6 +35,7 @@ export function initialState(canvasHeight: number): GameState {
     ],
     nextImageIndex: 1 % BLOCK_IMAGE_COUNT,
     lastLandingWasPerfect: false,
+    spawnDirection: 'ltr',
   };
 }
 
@@ -111,6 +113,7 @@ export function landBlock(state: GameState, fallingCX: number): LandResult {
     stack: [...state.stack, newBlock],
     nextImageIndex: (state.nextImageIndex + 1) % BLOCK_IMAGE_COUNT,
     lastLandingWasPerfect: perfect,
+    spawnDirection: flipSpawnDirection(state.spawnDirection ?? 'ltr'),
   };
 
   return { nextState, perfect, pointsAwarded };
