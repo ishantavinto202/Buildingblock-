@@ -6,15 +6,25 @@ interface GameHUDProps {
   isGameOver: boolean;
   onRestart: () => void;
   finalScore?: number;
+  /** Extra right inset so the pause button does not cover the best score */
+  topBarRightPadding?: number;
 }
 
-export function GameHUD({ isGameOver, onRestart, finalScore }: GameHUDProps) {
+export function GameHUD({
+  isGameOver,
+  onRestart,
+  finalScore,
+  topBarRightPadding = 0,
+}: GameHUDProps) {
   const { score, highScore, hasLoadedHighScore } = useScoreStore();
 
   return (
     <>
       {/* Live score bar */}
-      <View style={styles.topBar} pointerEvents="none">
+      <View
+        style={[styles.topBar, { paddingRight: 24 + topBarRightPadding }]}
+        pointerEvents="none"
+      >
         <Text style={styles.score}>{score}</Text>
         <Text style={styles.highScore}>
           {hasLoadedHighScore && highScore > 0 ? `BEST  ${highScore}` : 'BEST  --'}

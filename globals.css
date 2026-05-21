@@ -1,0 +1,46 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    /* Light mode colors - keeping the same for now since the app seems to be dark mode only */
+    --primary: #3f2cec;
+    --primaryDark: #0f0f0f;
+    --primaryForeground: #ffffff;
+    --mutedForeground: #878787;
+    --secondary: #000000;
+    --secondaryForeground: #878787;
+    --secondaryDark: #282828;
+    --red: #fb0000;
+    --heartRed: #ef4444;
+    --yellow: #ffcc00;
+    --input: #282828;
+    --border: #5a5a5a;
+    --green: #00da52;
+    --bottomSheet: #202020;
+    --channelBorder: #241986;
+    --listenGradient: #2d264b;
+    --nearInvisible: rgba(0, 0, 0, 0.01);
+  }
+
+  .dark {
+    --primary: #3f2cec;
+    --primaryDark: #0f0f0f;
+    --primaryForeground: #ffffff;
+    --mutedForeground: #878787;
+    --secondary: #0e0e0e;
+    --secondaryForeground: #878787;
+    --secondaryDark: #282828;
+    --red: #fb0000;
+    --heartRed: #ef4444;
+    --yellow: #ffcc00;
+    --input: #282828;
+    --border: #5a5a5a;
+    --green: #00da52;
+    --bottomSheet: #202020;
+    --channelBorder: #241986;
+    --listenGradient: #2d264b;
+    --nearInvisible: rgba(0, 0, 0, 0.01);
+  }
+}

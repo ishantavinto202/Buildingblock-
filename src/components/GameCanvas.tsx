@@ -6,16 +6,12 @@ import {
   Group,
   Path,
   Skia,
-  Text,
-  useDerivedValue,
   Fill,
-  matchFont,
 } from '@shopify/react-native-skia';
-import { Platform } from 'react-native';
-import { SharedValue } from 'react-native-reanimated';
+import { SharedValue, useDerivedValue } from 'react-native-reanimated';
 import { GameState } from '../game/types';
 import { ParticlePool } from '../effects/ParticlePool';
-import { BLOCK_W, BLOCK_H, PARTICLE_POOL_SIZE, PARTICLE_DURATION_MS, POINTS_LAND, POINTS_PERFECT_BONUS } from '../game/constants';
+import { BLOCK_W, BLOCK_H, PARTICLE_POOL_SIZE, PARTICLE_DURATION_MS } from '../game/constants';
 
 const BLOCK_REQUIRES = [
   require('../../assets/images/blocks/block_0.png'),
@@ -45,20 +41,23 @@ function makeStarPath(r: number) {
 }
 
 const STAR_PATH = makeStarPath(6);
-const PERFECT_SCORE_LABEL = `+${POINTS_LAND + POINTS_PERFECT_BONUS}`;
 
 export interface GameCanvasProps {
   width: number;
   height: number;
   gameState: GameState;
   swayOffset: SharedValue<number>;
+  swayAnchorCx: SharedValue<number>;
   fallY: SharedValue<number>;
-  towerSwayOffset: SharedValue<number>;
+  towerSwayAngle: SharedValue<number>;
+  towerPivotCx: SharedValue<number>;
+  towerPivotY: SharedValue<number>;
+  cameraOffsetY: SharedValue<number>;
+  cameraShakeX: SharedValue<number>;
+  cameraShakeY: SharedValue<number>;
   particleTs: SharedValue<number>[];
   particleActives: SharedValue<boolean>[];
   particlePool: ParticlePool;
-  scoreTextY: SharedValue<number>;
-  scoreTextOpacity: SharedValue<number>;
 }
 
 // Particle rendering extracted to its own component to allow hooks at top level
@@ -103,19 +102,18 @@ export function GameCanvas({
   height,
   gameState,
   swayOffset,
+  swayAnchorCx,
   fallY,
-  towerSwayOffset,
+  towerSwayAngle,
+  towerPivotCx,
+  towerPivotY,
+  cameraOffsetY,
+  cameraShakeX,
+  cameraShakeY,
   particleTs,
   particleActives,
   particlePool,
-  scoreTextY,
-  scoreTextOpacity,
 }: GameCanvasProps) {
-  const scoreFont = matchFont(
-    { fontFamily: Platform.OS === 'ios' ? 'Helvetica' : 'sans-serif', fontWeight: 'bold' },
-    24,
-  );
-
   // Load all 8 images at top level (hooks)
   const img0 = useImage(BLOCK_REQUIRES[0]);
   const img1 = useImage(BLOCK_REQUIRES[1]);
@@ -127,21 +125,29 @@ export function GameCanvas({
   const img7 = useImage(BLOCK_REQUIRES[7]);
   const images = [img0, img1, img2, img3, img4, img5, img6, img7];
 
+  /** Vertical scroll only + brief landing shake (no continuous camera sway). */
+  const cameraTransform = useDerivedValue(() => [
+    { translateX: cameraShakeX.value },
+    { translateY: cameraOffsetY.value + cameraShakeY.value },
+  ]);
+
   const fallingTransform = useDerivedValue(() => [
-    { translateX: width / 2 + swayOffset.value - BLOCK_W / 2 },
+    { translateX: swayAnchorCx.value + swayOffset.value - BLOCK_W / 2 },
     { translateY: fallY.value },
   ]);
 
-  const towerTransform = useDerivedValue(() => [
-    { translateX: towerSwayOffset.value },
-  ]);
-
-  const scoreTextTransform = useDerivedValue(() => [
-    { translateX: width / 2 - 14 },
-    { translateY: scoreTextY.value },
-  ]);
-
-  const scoreTextOpacityDerived = useDerivedValue(() => scoreTextOpacity.value);
+  /** Rotate the whole tower around the base block (bottom-center pivot). */
+  const towerTransform = useDerivedValue(() => {
+    const px = towerPivotCx.value;
+    const py = towerPivotY.value;
+    return [
+      { translateX: px },
+      { translateY: py },
+      { rotate: towerSwayAngle.value },
+      { translateX: -px },
+      { translateY: -py },
+    ];
+  });
 
   const fallingImg = images[gameState.nextImageIndex];
 
@@ -149,59 +155,56 @@ export function GameCanvas({
   const particleSnapshots = Array.from({ length: PARTICLE_POOL_SIZE }, (_, i) => particlePool.get(i));
 
   return (
-    <Canvas style={{ width, height }}>
+    <Canvas style={{ width, height }} pointerEvents="none">
       <Fill color="#1a1a2e" />
 
-      {/* Tower: all settled blocks */}
-      <Group transform={towerTransform}>
-        {gameState.stack.map((block, i) => {
-          const img = images[block.imageIndex];
-          if (!img) return null;
-          return (
+      <Group transform={cameraTransform}>
+        {/* Tower: all settled blocks */}
+        <Group transform={towerTransform}>
+          {gameState.stack.map((block, i) => {
+            const img = images[block.imageIndex];
+            if (!img) return null;
+            return (
+              <Image
+                key={i}
+                image={img}
+                x={block.cx - BLOCK_W / 2}
+                y={block.y}
+                width={BLOCK_W}
+                height={BLOCK_H}
+                fit="fill"
+              />
+            );
+          })}
+        </Group>
+
+        {/* Active block: sways at spawn, falls after tap */}
+        {(gameState.phase === 'idle' || gameState.phase === 'dropping') && fallingImg && (
+          <Group transform={fallingTransform}>
             <Image
-              key={i}
-              image={img}
-              x={block.cx - BLOCK_W / 2}
-              y={block.y}
+              image={fallingImg}
+              x={0}
+              y={0}
               width={BLOCK_W}
               height={BLOCK_H}
               fit="fill"
             />
-          );
-        })}
-      </Group>
+          </Group>
+        )}
 
-      {/* Falling block */}
-      {gameState.phase === 'dropping' && fallingImg && (
-        <Group transform={fallingTransform}>
-          <Image
-            image={fallingImg}
-            x={0}
-            y={0}
-            width={BLOCK_W}
-            height={BLOCK_H}
-            fit="fill"
+        {/* Particles — each gets its own component for hook compliance */}
+        {particleSnapshots.map((p, idx) => (
+          <ParticleItem
+            key={idx}
+            particleT={particleTs[idx]}
+            particleActive={particleActives[idx]}
+            startX={p.startX}
+            startY={p.startY}
+            angle={p.angle}
+            speed={p.speed}
+            color={p.color}
           />
-        </Group>
-      )}
-
-      {/* Particles — each gets its own component for hook compliance */}
-      {particleSnapshots.map((p, idx) => (
-        <ParticleItem
-          key={idx}
-          particleT={particleTs[idx]}
-          particleActive={particleActives[idx]}
-          startX={p.startX}
-          startY={p.startY}
-          angle={p.angle}
-          speed={p.speed}
-          color={p.color}
-        />
-      ))}
-
-      {/* Floating +3 score text */}
-      <Group transform={scoreTextTransform} opacity={scoreTextOpacityDerived}>
-        <Text text={PERFECT_SCORE_LABEL} x={0} y={0} color="#FFD700" font={scoreFont} />
+        ))}
       </Group>
     </Canvas>
   );

@@ -1,9 +1,9 @@
 export type GamePhase = 'idle' | 'dropping' | 'animating' | 'game_over';
 
 export interface PlacedBlock {
-  /** Horizontal center, in canvas pixels */
+  /** Horizontal center in world/canvas X */
   cx: number;
-  /** Top edge, in canvas pixels */
+  /** Top edge in world Y (never camera-adjusted) */
   y: number;
   imageIndex: number;
 }

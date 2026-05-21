@@ -2,8 +2,14 @@
 export const BLOCK_W = 80;
 /** Logical height of every block in canvas pixels */
 export const BLOCK_H = 56;
-/** How far from the top of the canvas the first falling block spawns (top edge) */
-export const SPAWN_Y = 60;
+/** Gap in world px between tower top and the next block spawn (top edge) */
+export const SPAWN_ABOVE_TOWER_PX = 16;
+/** @deprecated Screen-fixed spawn — use computeSpawnWorldY(towerTop) instead */
+export const SPAWN_SCREEN_Y = 72;
+/** @deprecated Use SPAWN_ABOVE_TOWER_PX — kept for docs */
+export const SPAWN_Y = SPAWN_SCREEN_Y;
+/** Screen fraction where the tower top should anchor when scrolling (0–1 from top) */
+export const CAMERA_ANCHOR_FRACTION = 0.35;
 /** Number of distinct block images */
 export const BLOCK_IMAGE_COUNT = 8;
 
@@ -36,13 +42,33 @@ export const PARTICLE_SPEED_MAX = 140;
 /** Particle star colors */
 export const PARTICLE_COLORS = ['#FFD700', '#FFFFFF', '#FFF3A3', '#FFE566'] as const;
 
-/** Tower sway amplitude is this fraction of the falling block amplitude */
-export const TOWER_SWAY_FRACTION = 0.3;
+/** Tower rotation scales with falling-block difficulty by this fraction */
+export const TOWER_SWAY_FRACTION = 0.35;
 
-/** withSpring config used for tower sway */
-export const TOWER_SPRING = { damping: 8, stiffness: 60 } as const;
+/** Max tower lean (degrees) at full sway reach — applied at base pivot */
+export const TOWER_SWAY_MAX_DEG = 3.2;
+
+/** Stack height before the tower starts leaning */
+export const TOWER_MIN_STACK_HEIGHT_FOR_SWAY = 5;
+
+/** Brief camera nudge on sloppy landings only (not continuous sway) */
+export const CAMERA_SHAKE_MAX_X_PX = 4;
+export const CAMERA_SHAKE_MAX_Y_PX = 2;
+export const CAMERA_SHAKE_NEAR_COLLAPSE_HEIGHT = 14;
+export const CAMERA_SHAKE_NEAR_COLLAPSE_MULT = 1.35;
 
 /** Points for a plain landing */
 export const POINTS_LAND = 1;
 /** Bonus points for a perfect landing (in addition to POINTS_LAND) */
 export const POINTS_PERFECT_BONUS = 3;
+
+/** Per-frame lerp at 60fps for vertical camera follow (lower = smoother) */
+export const CAMERA_SMOOTH_FACTOR = 0.09;
+/** Duration when resetting camera after game restart */
+export const CAMERA_RESET_MS = 450;
+
+/** Minimum time (ms) the moving block must sway before the player can drop */
+export const MIN_DROP_DELAY_MS = 320;
+
+/** Inset from screen edges so the block stays fully visible at max sway */
+export const SWAY_EDGE_INSET_PX = 12;
