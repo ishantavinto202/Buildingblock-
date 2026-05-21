@@ -31,8 +31,20 @@ import {
 } from '../game/constants';
 import { getSwayConfig } from '../game/difficulty';
 import { applySwayPhaseJitter, getGlobalSwayAnchorCx } from '../game/swayAnchor';
-import { LOOP_DROPPING, LOOP_IDLE, LOOP_STOPPED, tickGameFrame } from '../game/gameLoop';
-import { computeOverlap, landBlock, resetState } from '../game/slice';
+import {
+  LOOP_DROPPING,
+  LOOP_IDLE,
+  LOOP_STOPPED,
+  LOOP_TIPPING,
+  tickGameFrame,
+} from '../game/gameLoop';
+import { tickTipFrame } from '../game/tipPhysics';
+import {
+  TIP_INITIAL_ANG_VEL,
+  TIP_INITIAL_DROP_VEL,
+  TIP_INITIAL_SLIDE_VEL,
+} from '../game/constants';
+import { computeOverlap, computeOverlapGeometry, landBlock, resetState } from '../game/slice';
 import { GameState } from '../game/types';
 import { useScoreStore } from '../store/scoreStore';
 
@@ -45,6 +57,9 @@ export interface TowerGameHook {
   swayOffset: SharedValue<number>;
   swayAnchorCx: SharedValue<number>;
   fallY: SharedValue<number>;
+  tipBlockCx: SharedValue<number>;
+  tipBlockY: SharedValue<number>;
+  tipBlockAngle: SharedValue<number>;
   towerSwayAngle: SharedValue<number>;
   towerPivotCx: SharedValue<number>;
   towerPivotY: SharedValue<number>;
@@ -85,6 +100,13 @@ export function useTowerGame(): TowerGameHook {
   const swayOffset = useSharedValue(0);
   const swayAnchorCx = useSharedValue(0);
   const fallY = useSharedValue(0);
+  const tipBlockCx = useSharedValue(0);
+  const tipBlockY = useSharedValue(0);
+  const tipBlockAngle = useSharedValue(0);
+  const tipVelX = useSharedValue(0);
+  const tipVelY = useSharedValue(0);
+  const tipAngVel = useSharedValue(0);
+  const tipLeverArm = useSharedValue(0);
   const idleStartTimeRef = useRef(0);
   const towerSwayAngle = useSharedValue(0);
   const towerPivotCx = useSharedValue(0);
@@ -122,6 +144,12 @@ export function useTowerGame(): TowerGameHook {
     freezeReanimatedAnimations([
       swayOffset,
       fallY,
+      tipBlockCx,
+      tipBlockY,
+      tipBlockAngle,
+      tipVelX,
+      tipVelY,
+      tipAngVel,
       towerSwayAngle,
       cameraOffsetY,
       cameraShakeX,
@@ -133,6 +161,12 @@ export function useTowerGame(): TowerGameHook {
   }, [
     swayOffset,
     fallY,
+    tipBlockCx,
+    tipBlockY,
+    tipBlockAngle,
+    tipVelX,
+    tipVelY,
+    tipAngVel,
     towerSwayAngle,
     cameraOffsetY,
     cameraShakeX,
@@ -171,6 +205,12 @@ export function useTowerGame(): TowerGameHook {
     handleLandRef.current(fallingCX);
   }, []);
 
+  const handleTipFallRef = useRef(() => {});
+
+  const onTipFallFromWorklet = useCallback(() => {
+    handleTipFallRef.current();
+  }, []);
+
   const markIdleStarted = useCallback(() => {
     idleStartTimeRef.current = Date.now();
   }, []);
@@ -185,6 +225,31 @@ export function useTowerGame(): TowerGameHook {
     cameraOffsetY.value = cameraStep(cameraOffsetY.value, cameraTarget, deltaMs);
 
     towerSwayElapsedMs.value += deltaMs;
+    if (loopPhase.value === LOOP_TIPPING) {
+      const tip = tickTipFrame(
+        tipBlockCx.value,
+        tipBlockY.value,
+        tipBlockAngle.value,
+        tipVelX.value,
+        tipVelY.value,
+        tipAngVel.value,
+        tipLeverArm.value,
+        canvasWidthShared.value,
+        canvasHeightShared.value,
+        deltaMs,
+      );
+      tipBlockCx.value = tip.cx;
+      tipBlockY.value = tip.y;
+      tipBlockAngle.value = tip.angle;
+      tipVelX.value = tip.velX;
+      tipVelY.value = tip.velY;
+      tipAngVel.value = tip.angVel;
+      if (tip.shouldFail) {
+        runOnJS(onTipFallFromWorklet)();
+      }
+      return;
+    }
+
     towerSwayAngle.value = computeTowerSwayAngleRad(
       stackLengthShared.value,
       canvasWidthShared.value,
@@ -217,6 +282,35 @@ export function useTowerGame(): TowerGameHook {
     }
   }, false);
 
+  const endGameOver = useCallback(() => {
+    isPausedShared.value = 0;
+    setIsPaused(false);
+    loopPhase.value = LOOP_STOPPED;
+    frameCallback.setActive(false);
+    towerSwayAngle.value = 0;
+    cameraShakeX.value = 0;
+    cameraShakeY.value = 0;
+    swayOffset.value = withTiming(0, { duration: 200 });
+    cameraOffsetY.value = withTiming(0, {
+      duration: CAMERA_RESET_MS,
+      easing: Easing.out(Easing.cubic),
+    });
+    const state = gameStateRef.current;
+    if (!state) return;
+    const over: GameState = { ...state, phase: 'game_over' };
+    gameStateRef.current = over;
+    setGameState(over);
+  }, [
+    isPausedShared,
+    loopPhase,
+    frameCallback,
+    towerSwayAngle,
+    cameraShakeX,
+    cameraShakeY,
+    swayOffset,
+    cameraOffsetY,
+  ]);
+
   const handleLand = useCallback(
     (fallingCX: number) => {
       const state = gameStateRef.current;
@@ -225,20 +319,46 @@ export function useTowerGame(): TowerGameHook {
       const { nextState, perfect, pointsAwarded } = landBlock(state, fallingCX);
 
       if (nextState.phase === 'game_over') {
-        isPausedShared.value = 0;
-        setIsPaused(false);
-        loopPhase.value = LOOP_STOPPED;
-        frameCallback.setActive(false);
-        towerSwayAngle.value = 0;
-        cameraShakeX.value = 0;
-        cameraShakeY.value = 0;
-        swayOffset.value = withTiming(0, { duration: 200 });
-        cameraOffsetY.value = withTiming(0, {
-          duration: CAMERA_RESET_MS,
-          easing: Easing.out(Easing.cubic),
-        });
-        gameStateRef.current = nextState;
-        setGameState(nextState);
+        endGameOver();
+        return;
+      }
+
+      if (nextState.phase === 'tipping') {
+        const topBlock = state.stack[state.stack.length - 1];
+        const geo = computeOverlapGeometry(fallingCX, topBlock.cx);
+        const landingY = topBlock.y - BLOCK_H;
+
+        tipBlockCx.value = fallingCX;
+        tipBlockY.value = landingY;
+        tipBlockAngle.value = 0;
+        tipLeverArm.value = geo.leverArm;
+        tipVelX.value = geo.leverArm * TIP_INITIAL_SLIDE_VEL;
+        tipVelY.value = TIP_INITIAL_DROP_VEL;
+        tipAngVel.value = geo.leverArm * TIP_INITIAL_ANG_VEL;
+        loopPhase.value = LOOP_TIPPING;
+        isLandingFlag.value = 0;
+
+        const severity = landingShakeSeverity(geo.overlap, state.stack.length);
+        if (severity > 0) {
+          const mx = shakeMagnitudeX(severity);
+          const my = shakeMagnitudeY(severity);
+          cancelAnimation(cameraShakeX);
+          cancelAnimation(cameraShakeY);
+          cameraShakeX.value = withSequence(
+            withTiming(mx * 1.2, { duration: 40 }),
+            withTiming(-mx * 0.7, { duration: 50 }),
+            withTiming(0, { duration: 80 }),
+          );
+          cameraShakeY.value = withSequence(
+            withTiming(my * 1.2, { duration: 40 }),
+            withTiming(-my * 0.5, { duration: 50 }),
+            withTiming(0, { duration: 80 }),
+          );
+        }
+
+        const tippingState: GameState = { ...state, phase: 'tipping' };
+        gameStateRef.current = tippingState;
+        setGameState(tippingState);
         return;
       }
 
@@ -328,18 +448,35 @@ export function useTowerGame(): TowerGameHook {
       fallY,
       swayAnchorCx,
       markIdleStarted,
+      endGameOver,
       frameCallback,
+      tipBlockCx,
+      tipBlockY,
+      tipBlockAngle,
+      tipVelX,
+      tipVelY,
+      tipAngVel,
+      tipLeverArm,
     ],
   );
 
   handleLandRef.current = handleLand;
+
+  const handleTipFall = useCallback(() => {
+    const state = gameStateRef.current;
+    if (!state || state.phase !== 'tipping' || loopPhase.value !== LOOP_TIPPING) return;
+    endGameOver();
+  }, [endGameOver, loopPhase]);
+
+  handleTipFallRef.current = handleTipFall;
 
   useEffect(() => {
     if (!isReady) {
       frameCallback.setActive(false);
       return;
     }
-    const shouldRun = gameState?.phase !== 'game_over' && !isPaused;
+    const shouldRun =
+      gameState?.phase !== 'game_over' && gameState?.phase !== undefined && !isPaused;
     frameCallback.setActive(shouldRun);
   }, [isReady, gameState?.phase, isPaused, frameCallback]);
 
@@ -369,6 +506,13 @@ export function useTowerGame(): TowerGameHook {
       swayOffset.value = 0;
       towerSwayAngle.value = 0;
       towerSwayElapsedMs.value = 0;
+      tipBlockCx.value = 0;
+      tipBlockY.value = 0;
+      tipBlockAngle.value = 0;
+      tipVelX.value = 0;
+      tipVelY.value = 0;
+      tipAngVel.value = 0;
+      tipLeverArm.value = 0;
       cameraShakeX.value = 0;
       cameraShakeY.value = 0;
       scoreTextOpacity.value = 0;
@@ -409,7 +553,14 @@ export function useTowerGame(): TowerGameHook {
 
   const pauseGame = useCallback(() => {
     const state = gameStateRef.current;
-    if (!state || state.phase === 'game_over' || isPausedRef.current) return;
+    if (
+      !state ||
+      state.phase === 'game_over' ||
+      state.phase === 'tipping' ||
+      isPausedRef.current
+    ) {
+      return;
+    }
 
     isPausedShared.value = 1;
     setIsPaused(true);
@@ -460,7 +611,7 @@ export function useTowerGame(): TowerGameHook {
       return;
     }
 
-    if (state.phase === 'dropping') return;
+    if (state.phase === 'dropping' || state.phase === 'tipping') return;
 
     if (state.phase !== 'game_over') return;
     if (canvasSize.width <= 0 || canvasSize.height <= 0) return;
@@ -529,6 +680,9 @@ export function useTowerGame(): TowerGameHook {
     swayOffset,
     swayAnchorCx,
     fallY,
+    tipBlockCx,
+    tipBlockY,
+    tipBlockAngle,
     towerSwayAngle,
     towerPivotCx,
     towerPivotY,

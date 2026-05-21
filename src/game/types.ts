@@ -1,4 +1,4 @@
-export type GamePhase = 'idle' | 'dropping' | 'animating' | 'game_over';
+export type GamePhase = 'idle' | 'dropping' | 'tipping' | 'game_over';
 
 export interface PlacedBlock {
   /** Horizontal center in world/canvas X */

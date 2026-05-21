@@ -49,6 +49,9 @@ export interface GameCanvasProps {
   swayOffset: SharedValue<number>;
   swayAnchorCx: SharedValue<number>;
   fallY: SharedValue<number>;
+  tipBlockCx: SharedValue<number>;
+  tipBlockY: SharedValue<number>;
+  tipBlockAngle: SharedValue<number>;
   towerSwayAngle: SharedValue<number>;
   towerPivotCx: SharedValue<number>;
   towerPivotY: SharedValue<number>;
@@ -104,6 +107,9 @@ export function GameCanvas({
   swayOffset,
   swayAnchorCx,
   fallY,
+  tipBlockCx,
+  tipBlockY,
+  tipBlockAngle,
   towerSwayAngle,
   towerPivotCx,
   towerPivotY,
@@ -135,6 +141,20 @@ export function GameCanvas({
     { translateX: swayAnchorCx.value + swayOffset.value - BLOCK_W / 2 },
     { translateY: fallY.value },
   ]);
+
+  /** Unstable landing: rotate around block center, slide and fall with gravity */
+  const tipTransform = useDerivedValue(() => {
+    const cx = tipBlockCx.value;
+    const cy = tipBlockY.value;
+    const pivotY = cy + BLOCK_H / 2;
+    return [
+      { translateX: cx },
+      { translateY: pivotY },
+      { rotate: tipBlockAngle.value },
+      { translateX: -BLOCK_W / 2 },
+      { translateY: -BLOCK_H / 2 },
+    ];
+  });
 
   /** Rotate the whole tower around the base block (bottom-center pivot). */
   const towerTransform = useDerivedValue(() => {
@@ -181,6 +201,19 @@ export function GameCanvas({
         {/* Active block: sways at spawn, falls after tap */}
         {(gameState.phase === 'idle' || gameState.phase === 'dropping') && fallingImg && (
           <Group transform={fallingTransform}>
+            <Image
+              image={fallingImg}
+              x={0}
+              y={0}
+              width={BLOCK_W}
+              height={BLOCK_H}
+              fit="fill"
+            />
+          </Group>
+        )}
+
+        {gameState.phase === 'tipping' && fallingImg && (
+          <Group transform={tipTransform}>
             <Image
               image={fallingImg}
               x={0}

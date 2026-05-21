@@ -5,12 +5,13 @@ function spawnYWorklet(towerTopWorldY: number): number {
   return towerTopWorldY - BLOCK_H - SPAWN_ABOVE_TOWER_PX;
 }
 
-/** 0 = swaying (idle), 1 = falling, 2 = stopped */
-export type LoopPhaseCode = 0 | 1 | 2;
+/** 0 = swaying (idle), 1 = falling, 2 = stopped, 3 = tipping off */
+export type LoopPhaseCode = 0 | 1 | 2 | 3;
 
 export const LOOP_IDLE = 0 as const;
 export const LOOP_DROPPING = 1 as const;
 export const LOOP_STOPPED = 2 as const;
+export const LOOP_TIPPING = 3 as const;
 
 export interface TickResult {
   phase: LoopPhaseCode;

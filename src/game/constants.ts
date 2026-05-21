@@ -16,6 +16,17 @@ export const BLOCK_IMAGE_COUNT = 8;
 /** Fraction of BLOCK_W that must overlap for a "perfect" placement (0–1) */
 export const PERFECT_OVERLAP_RATIO = 0.9;
 
+/** Minimum supported overlap to stack; below this the block tips off (0–1) */
+export const MIN_STACK_OVERLAP_RATIO = 0.42;
+
+/** Tipping physics (per frame at ~60fps, scaled by dt in worklet) */
+export const TIP_GRAVITY = 0.38;
+export const TIP_INITIAL_ANG_VEL = 0.09;
+export const TIP_INITIAL_DROP_VEL = 0.15;
+export const TIP_INITIAL_SLIDE_VEL = 0.55;
+export const TIP_TORQUE_ACCEL = 0.0035;
+export const TIP_FAIL_ANGLE_RAD = 1.05;
+
 /** Starting fall speed in px/frame (~60fps) */
 export const FALL_SPEED_INITIAL = 6;
 /** Speed increase per 5 blocks stacked */

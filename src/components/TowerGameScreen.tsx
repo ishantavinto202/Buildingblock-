@@ -24,6 +24,9 @@ export function TowerGameScreen() {
     swayOffset,
     swayAnchorCx,
     fallY,
+    tipBlockCx,
+    tipBlockY,
+    tipBlockAngle,
     towerSwayAngle,
     towerPivotCx,
     towerPivotY,
@@ -53,7 +56,7 @@ export function TowerGameScreen() {
     () =>
       Gesture.Tap()
         .maxDuration(250)
-        .enabled(!isPaused)
+        .enabled(!isPaused && gameState?.phase !== 'tipping')
         .onEnd(() => {
           runOnJS(onTap)();
         }),
@@ -61,7 +64,7 @@ export function TowerGameScreen() {
   );
 
   const isGameOver = gameState?.phase === 'game_over';
-  const canPause = isReady && !isGameOver && !isPaused;
+  const canPause = isReady && !isGameOver && gameState?.phase !== 'tipping' && !isPaused;
 
   return (
     <View style={styles.container}>
@@ -82,6 +85,9 @@ export function TowerGameScreen() {
                 swayOffset={swayOffset}
                 swayAnchorCx={swayAnchorCx}
                 fallY={fallY}
+                tipBlockCx={tipBlockCx}
+                tipBlockY={tipBlockY}
+                tipBlockAngle={tipBlockAngle}
                 towerSwayAngle={towerSwayAngle}
                 towerPivotCx={towerPivotCx}
                 towerPivotY={towerPivotY}
