@@ -81,5 +81,8 @@ export const CAMERA_RESET_MS = 450;
 /** Minimum time (ms) the moving block must sway before the player can drop */
 export const MIN_DROP_DELAY_MS = 320;
 
+/** Extra fall time after a miss before game over (ms) */
+export const MISS_FALL_GAME_OVER_DELAY_MS = 750;
+
 /** >1 = faster horizontal ping-pong (same bounds and difficulty curve) */
 export const SWAY_HORIZONTAL_SPEED_MULT = 1.28;

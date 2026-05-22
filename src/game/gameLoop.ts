@@ -1,4 +1,4 @@
-import { BLOCK_H, BLOCK_W } from './constants';
+import { BLOCK_H, BLOCK_W, MISS_FALL_GAME_OVER_DELAY_MS } from './constants';
 import { computeSpawnWorldY, getMaxSwayAmplitudePxWorklet } from './coordinates';
 import { tickPingPongSwayWorklet } from './swayMotion';
 
@@ -19,7 +19,9 @@ export interface TickResult {
   swayElapsedMs: number;
   isLanding: boolean;
   shouldLand: boolean;
+  shouldEndMissFall: boolean;
   fallingCX: number;
+  missFallElapsedMs: number;
 }
 
 // Worklet-safe difficulty (must stay in sync with difficulty.ts SWAY_BREAKPOINTS)
@@ -98,6 +100,8 @@ export function tickGameFrame(
   swayElapsedMs: number,
   traverseSign: number,
   isLanding: boolean,
+  isMissFall: boolean,
+  missFallElapsedMs: number,
   deltaMs: number,
 ): TickResult {
   'worklet';
@@ -121,14 +125,34 @@ export function tickGameFrame(
       swayElapsedMs: swayElapsedMs + deltaMs,
       isLanding: false,
       shouldLand: false,
+      shouldEndMissFall: false,
       fallingCX: 0,
+      missFallElapsedMs,
     };
   }
 
   if (phase === LOOP_DROPPING) {
     const speed = getFallSpeedWorklet(stackHeight) * dt;
-    const nextFallY = fallWorldY + speed;
     const lockedSway = dropSwayOffset;
+
+    if (isMissFall) {
+      const nextElapsed = missFallElapsedMs + deltaMs;
+      return {
+        phase: LOOP_DROPPING,
+        swayOffset: lockedSway,
+        traverseSign,
+        fallY: fallWorldY + speed,
+        dropSwayOffset: lockedSway,
+        swayElapsedMs,
+        isLanding: false,
+        shouldLand: false,
+        shouldEndMissFall: nextElapsed >= MISS_FALL_GAME_OVER_DELAY_MS,
+        fallingCX: 0,
+        missFallElapsedMs: nextElapsed,
+      };
+    }
+
+    const nextFallY = fallWorldY + speed;
     const landingWorldY = towerTopWorldY - BLOCK_H;
 
     if (nextFallY + BLOCK_H >= towerTopWorldY) {
@@ -142,7 +166,9 @@ export function tickGameFrame(
           swayElapsedMs,
           isLanding: true,
           shouldLand: true,
+          shouldEndMissFall: false,
           fallingCX: swayAnchorCx + lockedSway,
+          missFallElapsedMs,
         };
       }
       return {
@@ -154,7 +180,9 @@ export function tickGameFrame(
         swayElapsedMs,
         isLanding: true,
         shouldLand: false,
+        shouldEndMissFall: false,
         fallingCX: 0,
+        missFallElapsedMs,
       };
     }
 
@@ -167,7 +195,9 @@ export function tickGameFrame(
       swayElapsedMs,
       isLanding: false,
       shouldLand: false,
+      shouldEndMissFall: false,
       fallingCX: 0,
+      missFallElapsedMs,
     };
   }
 
@@ -180,6 +210,8 @@ export function tickGameFrame(
     swayElapsedMs: 0,
     isLanding: false,
     shouldLand: false,
+    shouldEndMissFall: false,
     fallingCX: 0,
+    missFallElapsedMs: 0,
   };
 }

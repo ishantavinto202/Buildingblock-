@@ -9,34 +9,29 @@ import {
   withSequence,
   withTiming,
 } from 'react-native-reanimated';
+import { ParticlePool } from '../effects/ParticlePool';
 import { cameraComputeTarget, cameraStep } from '../game/CameraManager';
 import {
   landingShakeSeverity,
   shakeMagnitudeX,
   shakeMagnitudeY,
 } from '../game/cameraShake';
-import { spawnWorldYForTower } from '../game/coordinates';
-import { freezeReanimatedAnimations } from '../game/freezeAnimations';
-import { computeTowerMaxLeanRadWorklet } from '../game/towerSway';
-import { ParticlePool } from '../effects/ParticlePool';
 import {
   BLOCK_H,
+  CAMERA_RESET_MS,
   MIN_DROP_DELAY_MS,
   PARTICLE_DURATION_MS,
   PARTICLE_POOL_SIZE,
   PARTICLES_PER_BURST,
   SCORE_TEXT_DURATION_MS,
   SCORE_TEXT_RISE_PX,
-  CAMERA_RESET_MS,
+  TIP_INITIAL_ANG_VEL,
+  TIP_INITIAL_DROP_VEL,
+  TIP_INITIAL_SLIDE_VEL,
 } from '../game/constants';
+import { getGlobalSwayAnchorCx, spawnWorldYForTower } from '../game/coordinates';
 import { getSwayConfig } from '../game/difficulty';
-import { getGlobalSwayAnchorCx } from '../game/coordinates';
-import {
-  computeTowerLeanFromPingPongWorklet,
-  rescaleSwayOffsetForAmplitude,
-  spawnDirectionToCode,
-  spawnSwayOffset,
-} from '../game/swayMotion';
+import { freezeReanimatedAnimations } from '../game/freezeAnimations';
 import {
   getSwayConfigWorklet,
   LOOP_DROPPING,
@@ -45,13 +40,15 @@ import {
   LOOP_TIPPING,
   tickGameFrame,
 } from '../game/gameLoop';
-import { tickTipFrame } from '../game/tipPhysics';
-import {
-  TIP_INITIAL_ANG_VEL,
-  TIP_INITIAL_DROP_VEL,
-  TIP_INITIAL_SLIDE_VEL,
-} from '../game/constants';
 import { computeOverlap, computeOverlapGeometry, landBlock, resetState } from '../game/slice';
+import {
+  computeTowerLeanFromPingPongWorklet,
+  rescaleSwayOffsetForAmplitude,
+  spawnDirectionToCode,
+  spawnSwayOffset,
+} from '../game/swayMotion';
+import { tickTipFrame } from '../game/tipPhysics';
+import { computeTowerMaxLeanRadWorklet } from '../game/towerSway';
 import { GameState } from '../game/types';
 import { useScoreStore } from '../store/scoreStore';
 
@@ -133,6 +130,8 @@ export function useTowerGame(): TowerGameHook {
   const traverseSignShared = useSharedValue(1);
   const dropSwayOffset = useSharedValue(0);
   const isLandingFlag = useSharedValue(0);
+  const isMissFallShared = useSharedValue(0);
+  const missFallElapsedMs = useSharedValue(0);
 
   const towerTopWorldY = useSharedValue(0);
   const stackLengthShared = useSharedValue(1);
@@ -221,6 +220,12 @@ export function useTowerGame(): TowerGameHook {
     handleTipFallRef.current();
   }, []);
 
+  const handleMissFallEndRef = useRef(() => {});
+
+  const onMissFallEndFromWorklet = useCallback(() => {
+    handleMissFallEndRef.current();
+  }, []);
+
   const markIdleStarted = useCallback(() => {
     idleStartTimeRef.current = Date.now();
   }, []);
@@ -281,6 +286,8 @@ export function useTowerGame(): TowerGameHook {
       swayElapsedMs.value,
       traverseSignShared.value,
       isLandingFlag.value === 1,
+      isMissFallShared.value === 1,
+      missFallElapsedMs.value,
       deltaMs,
     );
 
@@ -291,6 +298,7 @@ export function useTowerGame(): TowerGameHook {
     dropSwayOffset.value = result.dropSwayOffset;
     swayElapsedMs.value = result.swayElapsedMs;
     isLandingFlag.value = result.isLanding ? 1 : 0;
+    missFallElapsedMs.value = result.missFallElapsedMs;
 
     const stackH = stackLengthShared.value;
     const canvasW = canvasWidthShared.value;
@@ -305,12 +313,18 @@ export function useTowerGame(): TowerGameHook {
     if (result.shouldLand) {
       runOnJS(onLandFromWorklet)(result.fallingCX);
     }
+    if (result.shouldEndMissFall) {
+      runOnJS(onMissFallEndFromWorklet)();
+    }
   }, false);
 
   const endGameOver = useCallback(() => {
     isPausedShared.value = 0;
     setIsPaused(false);
     loopPhase.value = LOOP_STOPPED;
+    isMissFallShared.value = 0;
+    missFallElapsedMs.value = 0;
+    isLandingFlag.value = 0;
     frameCallback.setActive(false);
     towerSwayAngle.value = 0;
     cameraShakeX.value = 0;
@@ -344,7 +358,9 @@ export function useTowerGame(): TowerGameHook {
       const { nextState, perfect, pointsAwarded } = landBlock(state, fallingCX);
 
       if (nextState.phase === 'game_over') {
-        endGameOver();
+        isMissFallShared.value = 1;
+        missFallElapsedMs.value = 0;
+        isLandingFlag.value = 0;
         return;
       }
 
@@ -494,6 +510,14 @@ export function useTowerGame(): TowerGameHook {
 
   handleLandRef.current = handleLand;
 
+  const handleMissFallEnd = useCallback(() => {
+    const state = gameStateRef.current;
+    if (!state || state.phase !== 'dropping' || isMissFallShared.value !== 1) return;
+    endGameOver();
+  }, [endGameOver]);
+
+  handleMissFallEndRef.current = handleMissFallEnd;
+
   const handleTipFall = useCallback(() => {
     const state = gameStateRef.current;
     if (!state || state.phase !== 'tipping' || loopPhase.value !== LOOP_TIPPING) return;
@@ -536,6 +560,8 @@ export function useTowerGame(): TowerGameHook {
       const { amplitude } = getSwayConfig(next.stack.length, w);
       swayOffset.value = spawnSwayOffset(amplitude, next.spawnDirection);
       isLandingFlag.value = 0;
+      isMissFallShared.value = 0;
+      missFallElapsedMs.value = 0;
       dropSwayOffset.value = 0;
       fallY.value = spawnWorldYForTower(topBlock.y);
       tipBlockCx.value = 0;
@@ -627,6 +653,8 @@ export function useTowerGame(): TowerGameHook {
 
     dropSwayOffset.value = swayOffset.value;
     isLandingFlag.value = 0;
+    isMissFallShared.value = 0;
+    missFallElapsedMs.value = 0;
     loopPhase.value = LOOP_DROPPING;
     fallY.value = spawnWorldYForTower(state.stack[state.stack.length - 1].y);
 
