@@ -1,4 +1,4 @@
-import { BLOCK_H, BLOCK_W, TIP_FAIL_ANGLE_RAD, TIP_GRAVITY, TIP_TORQUE_ACCEL } from './constants';
+import { TIP_FAIL_ANGLE_RAD, TIP_GRAVITY, TIP_TORQUE_ACCEL } from './constants';
 
 export interface TipState {
   cx: number;
@@ -25,12 +25,15 @@ export function tickTipFrame(
   velY: number,
   angVel: number,
   leverArm: number,
+  blockW: number,
+  blockH: number,
   canvasWidth: number,
   canvasHeight: number,
   deltaMs: number,
 ): TipTickResult {
   'worklet';
   const dt = deltaMs / 16.67;
+  const halfW = blockW / 2;
 
   const torque = leverArm * TIP_TORQUE_ACCEL * dt;
   const nextAngVel = angVel + torque;
@@ -41,9 +44,8 @@ export function tickTipFrame(
   const nextY = y + nextVelY * dt;
 
   const offScreenX =
-    nextCx + BLOCK_W / 2 < -BLOCK_W * 0.25 ||
-    nextCx - BLOCK_W / 2 > canvasWidth + BLOCK_W * 0.25;
-  const fellBelow = nextY > canvasHeight + BLOCK_H;
+    nextCx + halfW < -halfW * 0.25 || nextCx - halfW > canvasWidth + halfW * 0.25;
+  const fellBelow = nextY > canvasHeight + blockH;
   const tippedOver = Math.abs(nextAngle) >= TIP_FAIL_ANGLE_RAD;
 
   const shouldFail = offScreenX || fellBelow || tippedOver;

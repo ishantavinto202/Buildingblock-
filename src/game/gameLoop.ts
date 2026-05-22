@@ -1,4 +1,5 @@
-import { BLOCK_H, BLOCK_W, MISS_FALL_GAME_OVER_DELAY_MS } from './constants';
+import { MISS_FALL_GAME_OVER_DELAY_MS } from './constants';
+import { getBlockGameplayHWorklet } from './blockCatalog';
 import { computeSpawnWorldY, getMaxSwayAmplitudePxWorklet } from './coordinates';
 import { tickPingPongSwayWorklet } from './swayMotion';
 
@@ -102,10 +103,12 @@ export function tickGameFrame(
   isLanding: boolean,
   isMissFall: boolean,
   missFallElapsedMs: number,
+  nextImageIndex: number,
   deltaMs: number,
 ): TickResult {
   'worklet';
   const dt = deltaMs / 16.67;
+  const fallingH = getBlockGameplayHWorklet(nextImageIndex);
 
   if (phase === LOOP_IDLE) {
     const { amplitude, halfPeriod } = getSwayConfigWorklet(stackHeight, canvasWidth);
@@ -120,7 +123,7 @@ export function tickGameFrame(
       phase: LOOP_IDLE,
       swayOffset: ping.swayOffset,
       traverseSign: ping.traverseSign,
-      fallY: computeSpawnWorldY(towerTopWorldY),
+      fallY: computeSpawnWorldY(towerTopWorldY, fallingH),
       dropSwayOffset,
       swayElapsedMs: swayElapsedMs + deltaMs,
       isLanding: false,
@@ -153,9 +156,9 @@ export function tickGameFrame(
     }
 
     const nextFallY = fallWorldY + speed;
-    const landingWorldY = towerTopWorldY - BLOCK_H;
+    const landingWorldY = towerTopWorldY - fallingH;
 
-    if (nextFallY + BLOCK_H >= towerTopWorldY) {
+    if (nextFallY + fallingH >= towerTopWorldY) {
       if (!isLanding) {
         return {
           phase: LOOP_DROPPING,
@@ -205,7 +208,7 @@ export function tickGameFrame(
     phase: LOOP_STOPPED,
     swayOffset: 0,
     traverseSign: 1,
-    fallY: computeSpawnWorldY(towerTopWorldY),
+    fallY: computeSpawnWorldY(towerTopWorldY, fallingH),
     dropSwayOffset: 0,
     swayElapsedMs: 0,
     isLanding: false,

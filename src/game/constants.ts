@@ -1,7 +1,9 @@
-/** Logical width of every block in canvas pixels */
-export const BLOCK_W = 80;
-/** Logical height of every block in canvas pixels */
-export const BLOCK_H = 56;
+import { BLOCK_IMAGE_COUNT, MAX_BLOCK_GAMEPLAY_H, MAX_BLOCK_GAMEPLAY_W } from './blockCatalog';
+
+/** Max gameplay width across all block types (sway lane sizing). */
+export const BLOCK_W = MAX_BLOCK_GAMEPLAY_W;
+/** Max gameplay height across all block types. */
+export const BLOCK_H = MAX_BLOCK_GAMEPLAY_H;
 /** Gap in world px between tower top and the next block spawn (top edge) */
 export const SPAWN_ABOVE_TOWER_PX = 28;
 /** @deprecated Screen-fixed spawn — use computeSpawnWorldY(towerTop) instead */
@@ -10,8 +12,7 @@ export const SPAWN_SCREEN_Y = 72;
 export const SPAWN_Y = SPAWN_SCREEN_Y;
 /** Screen fraction where the tower top should anchor when scrolling (0–1 from top) */
 export const CAMERA_ANCHOR_FRACTION = 0.35;
-/** Number of distinct block images */
-export const BLOCK_IMAGE_COUNT = 8;
+export { BLOCK_IMAGE_COUNT };
 
 /** Fraction of BLOCK_W that must overlap for a "perfect" placement (0–1) */
 export const PERFECT_OVERLAP_RATIO = 0.9;

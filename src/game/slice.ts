@@ -1,12 +1,11 @@
 import {
-  BLOCK_W,
-  BLOCK_H,
   BLOCK_IMAGE_COUNT,
   MIN_STACK_OVERLAP_RATIO,
   PERFECT_OVERLAP_RATIO,
   POINTS_LAND,
   POINTS_PERFECT_BONUS,
 } from './constants';
+import { getBlockGameplayH, getBlockGameplayW } from './blockCatalog';
 import { flipSpawnDirection } from './swayMotion';
 import { GameState, PlacedBlock, LandResult } from './types';
 
@@ -23,7 +22,8 @@ export interface OverlapGeometry {
 }
 
 export function initialState(canvasHeight: number): GameState {
-  const groundY = canvasHeight - GROUND_Y_OFFSET - BLOCK_H;
+  const baseH = getBlockGameplayH(0);
+  const groundY = canvasHeight - GROUND_Y_OFFSET - baseH;
   return {
     phase: 'idle',
     stack: [
@@ -40,33 +40,41 @@ export function initialState(canvasHeight: number): GameState {
 }
 
 /**
- * Computes the overlap fraction between a falling block centered at `fallingCX`
- * and the top-of-stack block centered at `topBlockCX`.
- * Returns a value 0–1.
+ * Computes overlap between falling and support blocks (per-type widths).
+ * Overlap fraction is relative to the falling block width.
  */
-export function computeOverlap(fallingCX: number, topBlockCX: number): number {
-  return computeOverlapGeometry(fallingCX, topBlockCX).overlap;
+export function computeOverlap(
+  fallingCX: number,
+  fallingImageIndex: number,
+  topBlockCX: number,
+  topImageIndex: number,
+): number {
+  return computeOverlapGeometry(fallingCX, fallingImageIndex, topBlockCX, topImageIndex).overlap;
 }
 
 export function computeOverlapGeometry(
   fallingCX: number,
+  fallingImageIndex: number,
   topBlockCX: number,
+  topImageIndex: number,
 ): OverlapGeometry {
-  const fallingLeft = fallingCX - BLOCK_W / 2;
-  const fallingRight = fallingCX + BLOCK_W / 2;
-  const topLeft = topBlockCX - BLOCK_W / 2;
-  const topRight = topBlockCX + BLOCK_W / 2;
+  const fallingW = getBlockGameplayW(fallingImageIndex);
+  const topW = getBlockGameplayW(topImageIndex);
+  const fallingLeft = fallingCX - fallingW / 2;
+  const fallingRight = fallingCX + fallingW / 2;
+  const topLeft = topBlockCX - topW / 2;
+  const topRight = topBlockCX + topW / 2;
   const overlapLeft = Math.max(fallingLeft, topLeft);
   const overlapRight = Math.min(fallingRight, topRight);
   const overlapWidth = Math.max(0, overlapRight - overlapLeft);
-  const overlap = overlapWidth / BLOCK_W;
+  const overlap = fallingW > 0 ? overlapWidth / fallingW : 0;
 
   if (overlap === 0) {
     return { overlap: 0, overlapCenter: topBlockCX, leverArm: 0, outcome: 'miss' };
   }
 
   const overlapCenter = (overlapLeft + overlapRight) / 2;
-  const leverArm = Math.max(-1, Math.min(1, (fallingCX - overlapCenter) / (BLOCK_W / 2)));
+  const leverArm = Math.max(-1, Math.min(1, (fallingCX - overlapCenter) / (fallingW / 2)));
 
   let outcome: LandingOutcome = 'stack';
   if (overlap < MIN_STACK_OVERLAP_RATIO) {
@@ -77,11 +85,17 @@ export function computeOverlapGeometry(
 }
 
 /**
- * Called when the falling block has enough support to stack.
+ * Called when the falling block reaches the tower top plane.
  */
 export function landBlock(state: GameState, fallingCX: number): LandResult {
   const topBlock = state.stack[state.stack.length - 1];
-  const { overlap, outcome } = computeOverlapGeometry(fallingCX, topBlock.cx);
+  const fallingIdx = state.nextImageIndex;
+  const { overlap, outcome } = computeOverlapGeometry(
+    fallingCX,
+    fallingIdx,
+    topBlock.cx,
+    topBlock.imageIndex,
+  );
 
   if (outcome === 'miss') {
     return {
@@ -101,17 +115,18 @@ export function landBlock(state: GameState, fallingCX: number): LandResult {
 
   const perfect = overlap >= PERFECT_OVERLAP_RATIO;
   const pointsAwarded = POINTS_LAND + (perfect ? POINTS_PERFECT_BONUS : 0);
+  const fallingH = getBlockGameplayH(fallingIdx);
 
   const newBlock: PlacedBlock = {
     cx: fallingCX,
-    y: topBlock.y - BLOCK_H,
-    imageIndex: state.nextImageIndex,
+    y: topBlock.y - fallingH,
+    imageIndex: fallingIdx,
   };
 
   const nextState: GameState = {
     phase: 'idle',
     stack: [...state.stack, newBlock],
-    nextImageIndex: (state.nextImageIndex + 1) % BLOCK_IMAGE_COUNT,
+    nextImageIndex: (fallingIdx + 1) % BLOCK_IMAGE_COUNT,
     lastLandingWasPerfect: perfect,
     spawnDirection: flipSpawnDirection(state.spawnDirection ?? 'ltr'),
   };

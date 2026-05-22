@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import {
   Canvas,
   Image,
@@ -9,20 +9,11 @@ import {
   Fill,
 } from '@shopify/react-native-skia';
 import { SharedValue, useDerivedValue } from 'react-native-reanimated';
+import { getBlockGameplaySize } from '../game/blockCatalog';
+import { BLOCK_IMAGE_SOURCES } from '../game/blockImages';
 import { GameState } from '../game/types';
 import { ParticlePool } from '../effects/ParticlePool';
-import { BLOCK_W, BLOCK_H, PARTICLE_POOL_SIZE, PARTICLE_DURATION_MS } from '../game/constants';
-
-const BLOCK_REQUIRES = [
-  require('../../assets/images/blocks/block_0.png'),
-  require('../../assets/images/blocks/block_1.png'),
-  require('../../assets/images/blocks/block_2.png'),
-  require('../../assets/images/blocks/block_3.png'),
-  require('../../assets/images/blocks/block_4.png'),
-  require('../../assets/images/blocks/block_5.png'),
-  require('../../assets/images/blocks/block_6.png'),
-  require('../../assets/images/blocks/block_7.png'),
-];
+import { PARTICLE_POOL_SIZE, PARTICLE_DURATION_MS } from '../game/constants';
 
 function makeStarPath(r: number) {
   const path = Skia.Path.Make();
@@ -63,7 +54,6 @@ export interface GameCanvasProps {
   particlePool: ParticlePool;
 }
 
-// Particle rendering extracted to its own component to allow hooks at top level
 interface ParticleItemProps {
   particleT: SharedValue<number>;
   particleActive: SharedValue<boolean>;
@@ -120,43 +110,46 @@ export function GameCanvas({
   particleActives,
   particlePool,
 }: GameCanvasProps) {
-  // Load all 8 images at top level (hooks)
-  const img0 = useImage(BLOCK_REQUIRES[0]);
-  const img1 = useImage(BLOCK_REQUIRES[1]);
-  const img2 = useImage(BLOCK_REQUIRES[2]);
-  const img3 = useImage(BLOCK_REQUIRES[3]);
-  const img4 = useImage(BLOCK_REQUIRES[4]);
-  const img5 = useImage(BLOCK_REQUIRES[5]);
-  const img6 = useImage(BLOCK_REQUIRES[6]);
-  const img7 = useImage(BLOCK_REQUIRES[7]);
+  const img0 = useImage(BLOCK_IMAGE_SOURCES[0]);
+  const img1 = useImage(BLOCK_IMAGE_SOURCES[1]);
+  const img2 = useImage(BLOCK_IMAGE_SOURCES[2]);
+  const img3 = useImage(BLOCK_IMAGE_SOURCES[3]);
+  const img4 = useImage(BLOCK_IMAGE_SOURCES[4]);
+  const img5 = useImage(BLOCK_IMAGE_SOURCES[5]);
+  const img6 = useImage(BLOCK_IMAGE_SOURCES[6]);
+  const img7 = useImage(BLOCK_IMAGE_SOURCES[7]);
   const images = [img0, img1, img2, img3, img4, img5, img6, img7];
 
-  /** Vertical scroll only + brief landing shake (no continuous camera sway). */
+  const fallingIndex = gameState.nextImageIndex;
+  const fallingSize = useMemo(() => getBlockGameplaySize(fallingIndex), [fallingIndex]);
+  const tipSize = fallingSize;
+
   const cameraTransform = useDerivedValue(() => [
     { translateX: cameraShakeX.value },
     { translateY: cameraOffsetY.value + cameraShakeY.value },
   ]);
 
+  const fallingHalfW = fallingSize.w / 2;
   const fallingTransform = useDerivedValue(() => [
-    { translateX: swayAnchorCx.value + swayOffset.value - BLOCK_W / 2 },
+    { translateX: swayAnchorCx.value + swayOffset.value - fallingHalfW },
     { translateY: fallY.value },
   ]);
 
-  /** Unstable landing: rotate around block center, slide and fall with gravity */
+  const tipHalfW = tipSize.w / 2;
+  const tipHalfH = tipSize.h / 2;
   const tipTransform = useDerivedValue(() => {
     const cx = tipBlockCx.value;
     const cy = tipBlockY.value;
-    const pivotY = cy + BLOCK_H / 2;
+    const pivotY = cy + tipHalfH;
     return [
       { translateX: cx },
       { translateY: pivotY },
       { rotate: tipBlockAngle.value },
-      { translateX: -BLOCK_W / 2 },
-      { translateY: -BLOCK_H / 2 },
+      { translateX: -tipHalfW },
+      { translateY: -tipHalfH },
     ];
   });
 
-  /** Rotate the whole tower around the base block (bottom-center pivot). */
   const towerTransform = useDerivedValue(() => {
     const px = towerPivotCx.value;
     const py = towerPivotY.value;
@@ -169,9 +162,8 @@ export function GameCanvas({
     ];
   });
 
-  const fallingImg = images[gameState.nextImageIndex];
+  const fallingImg = images[fallingIndex];
 
-  // Snapshot particle data for rendering (particles are JS objects, not shared values)
   const particleSnapshots = Array.from({ length: PARTICLE_POOL_SIZE }, (_, i) => particlePool.get(i));
 
   return (
@@ -179,34 +171,33 @@ export function GameCanvas({
       <Fill color="#1a1a2e" />
 
       <Group transform={cameraTransform}>
-        {/* Tower: all settled blocks */}
         <Group transform={towerTransform}>
           {gameState.stack.map((block, i) => {
             const img = images[block.imageIndex];
             if (!img) return null;
+            const { w, h } = getBlockGameplaySize(block.imageIndex);
             return (
               <Image
                 key={i}
                 image={img}
-                x={block.cx - BLOCK_W / 2}
+                x={block.cx - w / 2}
                 y={block.y}
-                width={BLOCK_W}
-                height={BLOCK_H}
+                width={w}
+                height={h}
                 fit="fill"
               />
             );
           })}
         </Group>
 
-        {/* Active block: sways at spawn, falls after tap */}
         {(gameState.phase === 'idle' || gameState.phase === 'dropping') && fallingImg && (
           <Group transform={fallingTransform}>
             <Image
               image={fallingImg}
               x={0}
               y={0}
-              width={BLOCK_W}
-              height={BLOCK_H}
+              width={fallingSize.w}
+              height={fallingSize.h}
               fit="fill"
             />
           </Group>
@@ -218,14 +209,13 @@ export function GameCanvas({
               image={fallingImg}
               x={0}
               y={0}
-              width={BLOCK_W}
-              height={BLOCK_H}
+              width={tipSize.w}
+              height={tipSize.h}
               fit="fill"
             />
           </Group>
         )}
 
-        {/* Particles — each gets its own component for hook compliance */}
         {particleSnapshots.map((p, idx) => (
           <ParticleItem
             key={idx}

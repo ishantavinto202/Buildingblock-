@@ -1,4 +1,5 @@
-import { BLOCK_H, BLOCK_W, CAMERA_ANCHOR_FRACTION, SPAWN_ABOVE_TOWER_PX } from './constants';
+import { CAMERA_ANCHOR_FRACTION, SPAWN_ABOVE_TOWER_PX } from './constants';
+import { getMaxBlockHalfWidthWorklet, MAX_BLOCK_GAMEPLAY_W } from './blockCatalog';
 
 export interface HorizontalMovementBounds {
   /** Block center X when the sprite's left edge is at viewport x = 0 */
@@ -9,6 +10,8 @@ export interface HorizontalMovementBounds {
   /** Half-range from anchor (px); block center = anchorCx + swayOffset */
   maxSwayAmplitude: number;
 }
+
+const MAX_BLOCK_HALF_W = MAX_BLOCK_GAMEPLAY_W / 2;
 
 /**
  * Edge-to-edge horizontal lane for the canvas/viewport width.
@@ -24,13 +27,12 @@ export function getHorizontalMovementBounds(canvasWidth: number): HorizontalMove
     };
   }
 
-  const halfBlock = BLOCK_W / 2;
   const anchorCx = canvasWidth / 2;
-  const maxSwayAmplitude = Math.max(0, anchorCx - halfBlock);
+  const maxSwayAmplitude = Math.max(0, anchorCx - MAX_BLOCK_HALF_W);
 
   return {
-    minCenterX: halfBlock,
-    maxCenterX: canvasWidth - halfBlock,
+    minCenterX: MAX_BLOCK_HALF_W,
+    maxCenterX: canvasWidth - MAX_BLOCK_HALF_W,
     anchorCx,
     maxSwayAmplitude,
   };
@@ -43,7 +45,7 @@ export function getMaxSwayAmplitudePx(canvasWidth: number): number {
 export function getMaxSwayAmplitudePxWorklet(canvasWidth: number): number {
   'worklet';
   if (canvasWidth <= 0) return 0;
-  return Math.max(0, canvasWidth / 2 - BLOCK_W / 2);
+  return Math.max(0, canvasWidth / 2 - getMaxBlockHalfWidthWorklet());
 }
 
 export function getGlobalSwayAnchorCx(canvasWidth: number): number {
@@ -59,14 +61,14 @@ export function getGlobalSwayAnchorCxWorklet(canvasWidth: number): number {
  * World-space Y for the active block spawn (top edge), above the tower top.
  * Horizontal travel uses the full viewport width via getHorizontalMovementBounds().
  */
-export function spawnWorldYForTower(towerTopWorldY: number): number {
-  return towerTopWorldY - BLOCK_H - SPAWN_ABOVE_TOWER_PX;
+export function spawnWorldYForTower(towerTopWorldY: number, blockH: number): number {
+  return towerTopWorldY - blockH - SPAWN_ABOVE_TOWER_PX;
 }
 
 /** Worklet-safe spawn Y — must not call non-worklet helpers. */
-export function computeSpawnWorldY(towerTopWorldY: number): number {
+export function computeSpawnWorldY(towerTopWorldY: number, blockH: number): number {
   'worklet';
-  return towerTopWorldY - BLOCK_H - SPAWN_ABOVE_TOWER_PX;
+  return towerTopWorldY - blockH - SPAWN_ABOVE_TOWER_PX;
 }
 
 export interface TowerSpawnPlacement {
@@ -78,9 +80,10 @@ export interface TowerSpawnPlacement {
 export function getTowerBlockSpawnPlacement(
   towerTopWorldY: number,
   viewportWidth: number,
+  blockH: number,
 ): TowerSpawnPlacement {
   return {
-    worldY: spawnWorldYForTower(towerTopWorldY),
+    worldY: spawnWorldYForTower(towerTopWorldY, blockH),
     bounds: getHorizontalMovementBounds(viewportWidth),
   };
 }

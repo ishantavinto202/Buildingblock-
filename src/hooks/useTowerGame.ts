@@ -17,7 +17,6 @@ import {
   shakeMagnitudeY,
 } from '../game/cameraShake';
 import {
-  BLOCK_H,
   CAMERA_RESET_MS,
   MIN_DROP_DELAY_MS,
   PARTICLE_DURATION_MS,
@@ -29,6 +28,7 @@ import {
   TIP_INITIAL_DROP_VEL,
   TIP_INITIAL_SLIDE_VEL,
 } from '../game/constants';
+import { getBlockGameplayH, getBlockGameplayW } from '../game/blockCatalog';
 import { getGlobalSwayAnchorCx, spawnWorldYForTower } from '../game/coordinates';
 import { getSwayConfig } from '../game/difficulty';
 import { freezeReanimatedAnimations } from '../game/freezeAnimations';
@@ -137,6 +137,9 @@ export function useTowerGame(): TowerGameHook {
   const stackLengthShared = useSharedValue(1);
   const canvasWidthShared = useSharedValue(0);
   const canvasHeightShared = useSharedValue(0);
+  const nextImageIndexShared = useSharedValue(0);
+  const fallingBlockWShared = useSharedValue(80);
+  const fallingBlockHShared = useSharedValue(80);
 
   const particleTs: SharedValue<number>[] = [];
   const particleActives: SharedValue<boolean>[] = [];
@@ -185,10 +188,19 @@ export function useTowerGame(): TowerGameHook {
     particleTs,
   ]);
 
+  const syncFallingBlockDims = useCallback(
+    (imageIndex: number) => {
+      nextImageIndexShared.value = imageIndex;
+      fallingBlockWShared.value = getBlockGameplayW(imageIndex);
+      fallingBlockHShared.value = getBlockGameplayH(imageIndex);
+    },
+    [nextImageIndexShared, fallingBlockWShared, fallingBlockHShared],
+  );
+
   const syncTowerPivot = useCallback(
-    (baseCx: number, baseY: number) => {
+    (baseCx: number, baseY: number, baseImageIndex: number) => {
       towerPivotCx.value = baseCx;
-      towerPivotY.value = baseY + BLOCK_H;
+      towerPivotY.value = baseY + getBlockGameplayH(baseImageIndex);
     },
     [towerPivotCx, towerPivotY],
   );
@@ -258,6 +270,8 @@ export function useTowerGame(): TowerGameHook {
         tipVelY.value,
         tipAngVel.value,
         tipLeverArm.value,
+        fallingBlockWShared.value,
+        fallingBlockHShared.value,
         canvasWidthShared.value,
         canvasHeightShared.value,
         deltaMs,
@@ -288,6 +302,7 @@ export function useTowerGame(): TowerGameHook {
       isLandingFlag.value === 1,
       isMissFallShared.value === 1,
       missFallElapsedMs.value,
+      nextImageIndexShared.value,
       deltaMs,
     );
 
@@ -366,8 +381,15 @@ export function useTowerGame(): TowerGameHook {
 
       if (nextState.phase === 'tipping') {
         const topBlock = state.stack[state.stack.length - 1];
-        const geo = computeOverlapGeometry(fallingCX, topBlock.cx);
-        const landingY = topBlock.y - BLOCK_H;
+        const fallingIdx = state.nextImageIndex;
+        const geo = computeOverlapGeometry(
+          fallingCX,
+          fallingIdx,
+          topBlock.cx,
+          topBlock.imageIndex,
+        );
+        const fallingH = getBlockGameplayH(fallingIdx);
+        const landingY = topBlock.y - fallingH;
 
         tipBlockCx.value = fallingCX;
         tipBlockY.value = landingY;
@@ -407,8 +429,9 @@ export function useTowerGame(): TowerGameHook {
 
       if (perfect) {
         const topBlock = state.stack[state.stack.length - 1];
+        const fallingH = getBlockGameplayH(state.nextImageIndex);
         const burstCX = fallingCX;
-        const burstCY = topBlock.y - BLOCK_H / 2;
+        const burstCY = topBlock.y - fallingH / 2;
         const activated = particlePool.activate(burstCX, burstCY, PARTICLES_PER_BURST);
         activated.forEach((idx) => {
           particleActives[idx].value = true;
@@ -431,7 +454,12 @@ export function useTowerGame(): TowerGameHook {
       }
 
       const landedTop = state.stack[state.stack.length - 1];
-      const overlap = computeOverlap(fallingCX, landedTop.cx);
+      const overlap = computeOverlap(
+        fallingCX,
+        state.nextImageIndex,
+        landedTop.cx,
+        landedTop.imageIndex,
+      );
       const severity = landingShakeSeverity(overlap, state.stack.length);
       if (severity > 0) {
         const mx = shakeMagnitudeX(severity);
@@ -468,7 +496,8 @@ export function useTowerGame(): TowerGameHook {
       swayAnchorCx.value = getGlobalSwayAnchorCx(canvasW);
       spawnDirectionShared.value = spawnDirectionToCode(nextState.spawnDirection);
       isLandingFlag.value = 0;
-      fallY.value = spawnWorldYForTower(topBlock.y);
+      fallY.value = spawnWorldYForTower(topBlock.y, getBlockGameplayH(nextState.nextImageIndex));
+      syncFallingBlockDims(nextState.nextImageIndex);
       markIdleStarted();
 
       gameStateRef.current = nextState;
@@ -476,6 +505,7 @@ export function useTowerGame(): TowerGameHook {
     },
     [
       addPoints,
+      syncFallingBlockDims,
       cameraOffsetY,
       particlePool,
       particleActives,
@@ -547,7 +577,8 @@ export function useTowerGame(): TowerGameHook {
       cancelAnimation(cameraShakeY);
 
       const base = next.stack[0];
-      syncTowerPivot(base.cx, base.y);
+      syncTowerPivot(base.cx, base.y, base.imageIndex);
+      syncFallingBlockDims(next.nextImageIndex);
       towerTopWorldY.value = topBlock.y;
       stackLengthShared.value = next.stack.length;
       canvasWidthShared.value = w;
@@ -563,7 +594,7 @@ export function useTowerGame(): TowerGameHook {
       isMissFallShared.value = 0;
       missFallElapsedMs.value = 0;
       dropSwayOffset.value = 0;
-      fallY.value = spawnWorldYForTower(topBlock.y);
+      fallY.value = spawnWorldYForTower(topBlock.y, getBlockGameplayH(next.nextImageIndex));
       tipBlockCx.value = 0;
       tipBlockY.value = 0;
       tipBlockAngle.value = 0;
@@ -603,6 +634,7 @@ export function useTowerGame(): TowerGameHook {
       cameraShakeX,
       cameraShakeY,
       syncTowerPivot,
+      syncFallingBlockDims,
       scoreTextOpacity,
       cameraOffsetY,
       markIdleStarted,
@@ -656,7 +688,8 @@ export function useTowerGame(): TowerGameHook {
     isMissFallShared.value = 0;
     missFallElapsedMs.value = 0;
     loopPhase.value = LOOP_DROPPING;
-    fallY.value = spawnWorldYForTower(state.stack[state.stack.length - 1].y);
+    const top = state.stack[state.stack.length - 1];
+    fallY.value = spawnWorldYForTower(top.y, getBlockGameplayH(state.nextImageIndex));
 
     const dropping: GameState = { ...state, phase: 'dropping' };
     gameStateRef.current = dropping;
@@ -704,10 +737,11 @@ export function useTowerGame(): TowerGameHook {
         const { amplitude } = getSwayConfig(next.stack.length, w);
         swayOffset.value = spawnSwayOffset(amplitude, next.spawnDirection);
         isLandingFlag.value = 0;
-        fallY.value = spawnWorldYForTower(topBlock.y);
+        fallY.value = spawnWorldYForTower(topBlock.y, getBlockGameplayH(next.nextImageIndex));
         cameraShakeX.value = 0;
         cameraShakeY.value = 0;
-        syncTowerPivot(next.stack[0].cx, next.stack[0].y);
+        syncTowerPivot(next.stack[0].cx, next.stack[0].y, next.stack[0].imageIndex);
+        syncFallingBlockDims(next.nextImageIndex);
         markIdleStarted();
         gameStateRef.current = next;
         setGameState(next);
@@ -729,6 +763,7 @@ export function useTowerGame(): TowerGameHook {
       swayOffset,
       markIdleStarted,
       syncTowerPivot,
+      syncFallingBlockDims,
       towerSwayAngle,
       cameraShakeX,
       cameraShakeY,
