@@ -9,6 +9,7 @@ import {
   Fill,
 } from '@shopify/react-native-skia';
 import { SharedValue, useDerivedValue } from 'react-native-reanimated';
+import { getBaseDrawLayout } from '../game/basePlatform';
 import { getBlockGameplaySize } from '../game/blockCatalog';
 import { BLOCK_IMAGE_SOURCES } from '../game/blockImages';
 import { GameState } from '../game/types';
@@ -119,6 +120,12 @@ export function GameCanvas({
   const img6 = useImage(BLOCK_IMAGE_SOURCES[6]);
   const img7 = useImage(BLOCK_IMAGE_SOURCES[7]);
   const images = [img0, img1, img2, img3, img4, img5, img6, img7];
+  const baseImg = useImage(require('../../assets/images/BASE.png'));
+
+  const baseLayout = useMemo(
+    () => getBaseDrawLayout(width, height),
+    [width, height],
+  );
 
   const fallingIndex = gameState.nextImageIndex;
   const fallingSize = useMemo(() => getBlockGameplaySize(fallingIndex), [fallingIndex]);
@@ -171,6 +178,17 @@ export function GameCanvas({
       <Fill color="#1a1a2e" />
 
       <Group transform={cameraTransform}>
+        {baseImg && (
+          <Image
+            image={baseImg}
+            x={baseLayout.x}
+            y={baseLayout.y}
+            width={baseLayout.w}
+            height={baseLayout.h}
+            fit="fill"
+          />
+        )}
+
         <Group transform={towerTransform}>
           {gameState.stack.map((block, i) => {
             const img = images[block.imageIndex];

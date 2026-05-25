@@ -62,6 +62,11 @@ export function getBlockAsset(index: number): BlockAssetDef {
   return BLOCK_ASSETS[((index % BLOCK_IMAGE_COUNT) + BLOCK_IMAGE_COUNT) % BLOCK_IMAGE_COUNT]!;
 }
 
+/** Uniform random index in [0, BLOCK_IMAGE_COUNT); duplicates allowed between spawns. */
+export function pickRandomBlockIndex(): number {
+  return Math.floor(Math.random() * BLOCK_IMAGE_COUNT);
+}
+
 export function getBlockGameplaySize(index: number): { w: number; h: number } {
   const a = getBlockAsset(index);
   return { w: a.gameplayW, h: a.gameplayH };

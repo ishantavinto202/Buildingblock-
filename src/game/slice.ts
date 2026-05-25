@@ -1,15 +1,13 @@
 import {
-  BLOCK_IMAGE_COUNT,
   MIN_STACK_OVERLAP_RATIO,
   PERFECT_OVERLAP_RATIO,
   POINTS_LAND,
   POINTS_PERFECT_BONUS,
 } from './constants';
-import { getBlockGameplayH, getBlockGameplayW } from './blockCatalog';
+import { getStackGroundY } from './basePlatform';
+import { getBlockGameplayH, getBlockGameplayW, pickRandomBlockIndex } from './blockCatalog';
 import { flipSpawnDirection } from './swayMotion';
 import { GameState, PlacedBlock, LandResult } from './types';
-
-const GROUND_Y_OFFSET = 80;
 
 export type LandingOutcome = 'miss' | 'unstable' | 'stack';
 
@@ -22,18 +20,19 @@ export interface OverlapGeometry {
 }
 
 export function initialState(canvasHeight: number): GameState {
-  const baseH = getBlockGameplayH(0);
-  const groundY = canvasHeight - GROUND_Y_OFFSET - baseH;
+  const startIndex = pickRandomBlockIndex();
+  const startH = getBlockGameplayH(startIndex);
+  const groundY = getStackGroundY(canvasHeight, startH);
   return {
     phase: 'idle',
     stack: [
       {
         cx: 0,
         y: groundY,
-        imageIndex: 0,
+        imageIndex: startIndex,
       },
     ],
-    nextImageIndex: 1 % BLOCK_IMAGE_COUNT,
+    nextImageIndex: pickRandomBlockIndex(),
     lastLandingWasPerfect: false,
     spawnDirection: 'ltr',
   };
@@ -126,7 +125,7 @@ export function landBlock(state: GameState, fallingCX: number): LandResult {
   const nextState: GameState = {
     phase: 'idle',
     stack: [...state.stack, newBlock],
-    nextImageIndex: (fallingIdx + 1) % BLOCK_IMAGE_COUNT,
+    nextImageIndex: pickRandomBlockIndex(),
     lastLandingWasPerfect: perfect,
     spawnDirection: flipSpawnDirection(state.spawnDirection ?? 'ltr'),
   };
