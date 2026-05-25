@@ -3,6 +3,7 @@ import { StyleSheet, View } from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import { runOnJS } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { SKY_BACKGROUND_COLOR } from '../game/background';
 import { useTowerGame } from '../hooks/useTowerGame';
 import { GameCanvas } from './GameCanvas';
 import { GameHUD } from './GameHUD';
@@ -67,7 +68,7 @@ export function TowerGameScreen() {
   const canPause = isReady && !isGameOver && gameState?.phase !== 'tipping' && !isPaused;
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { backgroundColor: SKY_BACKGROUND_COLOR }]}>
       <GestureDetector gesture={tapGesture}>
         <View
           style={styles.fill}
@@ -97,6 +98,7 @@ export function TowerGameScreen() {
                 particleTs={particleTs}
                 particleActives={particleActives}
                 particlePool={particlePool}
+                isPaused={isPaused}
               />
               <PerfectScorePop
                 y={scoreTextY}
@@ -139,7 +141,6 @@ export function TowerGameScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#1a1a2e',
     overflow: 'hidden',
   },
   fill: {

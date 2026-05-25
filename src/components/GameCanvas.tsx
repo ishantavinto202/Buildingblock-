@@ -6,9 +6,10 @@ import {
   Group,
   Path,
   Skia,
-  Fill,
 } from '@shopify/react-native-skia';
 import { SharedValue, useDerivedValue } from 'react-native-reanimated';
+import { SkyScreenFill, WorldBackgroundStack } from './background/BackgroundWorldLayer';
+import { useCloudField } from '../hooks/useCloudField';
 import { getBaseDrawLayout } from '../game/basePlatform';
 import { getBlockGameplaySize } from '../game/blockCatalog';
 import { BLOCK_IMAGE_SOURCES } from '../game/blockImages';
@@ -53,6 +54,7 @@ export interface GameCanvasProps {
   particleTs: SharedValue<number>[];
   particleActives: SharedValue<boolean>[];
   particlePool: ParticlePool;
+  isPaused: boolean;
 }
 
 interface ParticleItemProps {
@@ -110,7 +112,15 @@ export function GameCanvas({
   particleTs,
   particleActives,
   particlePool,
+  isPaused,
 }: GameCanvasProps) {
+  const { clouds, cloudTimeMs } = useCloudField(
+    width,
+    height,
+    cameraOffsetY,
+    isPaused,
+    width > 0 && height > 0,
+  );
   const img0 = useImage(BLOCK_IMAGE_SOURCES[0]);
   const img1 = useImage(BLOCK_IMAGE_SOURCES[1]);
   const img2 = useImage(BLOCK_IMAGE_SOURCES[2]);
@@ -175,9 +185,16 @@ export function GameCanvas({
 
   return (
     <Canvas style={{ width, height }} pointerEvents="none">
-      <Fill color="#1a1a2e" />
+      <SkyScreenFill />
 
       <Group transform={cameraTransform}>
+        <WorldBackgroundStack
+          width={width}
+          height={height}
+          clouds={clouds}
+          cloudTimeMs={cloudTimeMs}
+        />
+
         {baseImg && (
           <Image
             image={baseImg}
