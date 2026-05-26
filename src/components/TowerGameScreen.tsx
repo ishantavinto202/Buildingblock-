@@ -5,13 +5,13 @@ import { runOnJS } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { SKY_BACKGROUND_COLOR } from '../game/background';
 import { useTowerGame } from '../hooks/useTowerGame';
+import { useScoreStore } from '../store/scoreStore';
 import { GameCanvas } from './GameCanvas';
 import { GameHUD } from './GameHUD';
 import { PauseButton } from './PauseButton';
 import { PauseMenu } from './PauseMenu';
 import { PerfectScorePop } from './PerfectScorePop';
 import { StarPop } from './StarPop';
-import { useScoreStore } from '../store/scoreStore';
 
 export function TowerGameScreen() {
   const insets = useSafeAreaInsets();

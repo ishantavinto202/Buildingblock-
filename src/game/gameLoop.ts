@@ -1,5 +1,5 @@
-import { MISS_FALL_GAME_OVER_DELAY_MS } from './constants';
 import { getBlockGameplayHWorklet } from './blockCatalog';
+import { MISS_FALL_GAME_OVER_DELAY_MS } from './constants';
 import { computeSpawnWorldY, getMaxSwayAmplitudePxWorklet } from './coordinates';
 import { tickPingPongSwayWorklet } from './swayMotion';
 

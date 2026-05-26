@@ -1,51 +1,51 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
-  cancelAnimation,
-  Easing,
-  runOnJS,
-  SharedValue,
-  useFrameCallback,
-  useSharedValue,
-  withSequence,
-  withTiming,
+    cancelAnimation,
+    Easing,
+    runOnJS,
+    SharedValue,
+    useFrameCallback,
+    useSharedValue,
+    withSequence,
+    withTiming,
 } from 'react-native-reanimated';
 import { ParticlePool } from '../effects/ParticlePool';
+import { getBlockGameplayH, getBlockGameplayW } from '../game/blockCatalog';
 import { cameraComputeTarget, cameraStep } from '../game/CameraManager';
 import {
-  landingShakeSeverity,
-  shakeMagnitudeX,
-  shakeMagnitudeY,
+    landingShakeSeverity,
+    shakeMagnitudeX,
+    shakeMagnitudeY,
 } from '../game/cameraShake';
 import {
-  CAMERA_RESET_MS,
-  MIN_DROP_DELAY_MS,
-  PARTICLE_DURATION_MS,
-  PARTICLE_POOL_SIZE,
-  PARTICLES_PER_BURST,
-  SCORE_TEXT_DURATION_MS,
-  SCORE_TEXT_RISE_PX,
-  TIP_INITIAL_ANG_VEL,
-  TIP_INITIAL_DROP_VEL,
-  TIP_INITIAL_SLIDE_VEL,
+    CAMERA_RESET_MS,
+    MIN_DROP_DELAY_MS,
+    PARTICLE_DURATION_MS,
+    PARTICLE_POOL_SIZE,
+    PARTICLES_PER_BURST,
+    SCORE_TEXT_DURATION_MS,
+    SCORE_TEXT_RISE_PX,
+    TIP_INITIAL_ANG_VEL,
+    TIP_INITIAL_DROP_VEL,
+    TIP_INITIAL_SLIDE_VEL,
 } from '../game/constants';
-import { getBlockGameplayH, getBlockGameplayW } from '../game/blockCatalog';
 import { getGlobalSwayAnchorCx, spawnWorldYForTower } from '../game/coordinates';
 import { getSwayConfig } from '../game/difficulty';
 import { freezeReanimatedAnimations } from '../game/freezeAnimations';
 import {
-  getSwayConfigWorklet,
-  LOOP_DROPPING,
-  LOOP_IDLE,
-  LOOP_STOPPED,
-  LOOP_TIPPING,
-  tickGameFrame,
+    getSwayConfigWorklet,
+    LOOP_DROPPING,
+    LOOP_IDLE,
+    LOOP_STOPPED,
+    LOOP_TIPPING,
+    tickGameFrame,
 } from '../game/gameLoop';
 import { computeOverlap, computeOverlapGeometry, landBlock, resetState } from '../game/slice';
 import {
-  computeTowerLeanFromPingPongWorklet,
-  rescaleSwayOffsetForAmplitude,
-  spawnDirectionToCode,
-  spawnSwayOffset,
+    computeTowerLeanFromPingPongWorklet,
+    rescaleSwayOffsetForAmplitude,
+    spawnDirectionToCode,
+    spawnSwayOffset,
 } from '../game/swayMotion';
 import { tickTipFrame } from '../game/tipPhysics';
 import { computeTowerMaxLeanRadWorklet } from '../game/towerSway';

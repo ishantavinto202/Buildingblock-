@@ -36,7 +36,7 @@ function def(
   return { id, file, nativeW, nativeH, gameplayW, gameplayH, color };
 }
 
-/** Order matches imageIndex 0…7 — files under assets/images/blocks/ */
+/** Order matches imageIndex 0…n — files under assets/images/blocks/ */
 export const BLOCK_ASSETS: readonly BlockAssetDef[] = [
   def('DJ_Controller', 'DJ_Controller.png', 197, 218, '#5B8DEF'),
   def('Equipment_Box', 'Equipment_Box.png', 218, 194, '#6BCB77'),
@@ -46,6 +46,7 @@ export const BLOCK_ASSETS: readonly BlockAssetDef[] = [
   def('Speaker_2', 'Speaker_2.png', 243, 259, '#00BBF9'),
   def('Speaker_3', 'Speaker_3.png', 150, 200, '#F15BB5'),
   def('Stage_Truss', 'Stage truss block.png', 219, 255, '#E07A5F'),
+  def('Concert_Mixer', 'Concert_Mixer.png', 438, 315, '#4A4E69'),
 ] as const;
 
 export const BLOCK_IMAGE_COUNT = BLOCK_ASSETS.length;

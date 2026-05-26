@@ -1,21 +1,21 @@
-import React, { useMemo } from 'react';
 import {
-  Canvas,
-  Image,
-  useImage,
-  Group,
-  Path,
-  Skia,
+    Canvas,
+    Group,
+    Image,
+    Path,
+    Skia,
+    useImage,
 } from '@shopify/react-native-skia';
+import React, { useMemo } from 'react';
 import { SharedValue, useDerivedValue } from 'react-native-reanimated';
-import { SkyScreenFill, WorldBackgroundStack } from './background/BackgroundWorldLayer';
-import { useCloudField } from '../hooks/useCloudField';
+import { ParticlePool } from '../effects/ParticlePool';
 import { getBaseDrawLayout } from '../game/basePlatform';
 import { getBlockGameplaySize } from '../game/blockCatalog';
 import { BLOCK_IMAGE_SOURCES } from '../game/blockImages';
+import { PARTICLE_DURATION_MS, PARTICLE_POOL_SIZE } from '../game/constants';
 import { GameState } from '../game/types';
-import { ParticlePool } from '../effects/ParticlePool';
-import { PARTICLE_POOL_SIZE, PARTICLE_DURATION_MS } from '../game/constants';
+import { useCloudField } from '../hooks/useCloudField';
+import { SkyScreenFill, WorldBackgroundStack } from './background/BackgroundWorldLayer';
 
 function makeStarPath(r: number) {
   const path = Skia.Path.Make();
@@ -129,7 +129,8 @@ export function GameCanvas({
   const img5 = useImage(BLOCK_IMAGE_SOURCES[5]);
   const img6 = useImage(BLOCK_IMAGE_SOURCES[6]);
   const img7 = useImage(BLOCK_IMAGE_SOURCES[7]);
-  const images = [img0, img1, img2, img3, img4, img5, img6, img7];
+  const img8 = useImage(BLOCK_IMAGE_SOURCES[8]);
+  const images = [img0, img1, img2, img3, img4, img5, img6, img7, img8];
   const baseImg = useImage(require('../../assets/images/BASE.png'));
 
   const baseLayout = useMemo(

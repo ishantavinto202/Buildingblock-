@@ -10,4 +10,5 @@ export const BLOCK_IMAGE_SOURCES = [
   require('../../assets/images/blocks/Speaker_2.png'),
   require('../../assets/images/blocks/Speaker_3.png'),
   require('../../assets/images/blocks/Stage truss block.png'),
+  require('../../assets/images/blocks/Concert_Mixer.png'),
 ] as const;
