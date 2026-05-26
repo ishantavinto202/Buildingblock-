@@ -6,13 +6,19 @@ import {
 } from './constants';
 
 // Worklet tables — keep in sync with difficulty.ts / gameLoop.ts
-const SWAY_BP_HEIGHT = [0, 4, 8, 12, 16, 20] as const;
-const SWAY_BP_REACH = [0.86, 0.9, 0.93, 0.96, 0.98, 1.0] as const;
-const SWAY_BP_HALF = [950, 880, 780, 680, 580, 500] as const;
+const SWAY_BP_HEIGHT = [0, 10, 20, 30, 50, 75, 100] as const;
+const SWAY_BP_REACH = [0.74, 0.78, 0.85, 0.92, 0.94, 0.97, 1.0] as const;
+const SWAY_BP_HALF = [1350, 1260, 1100, 860, 780, 660, 560] as const;
+
+function smoothstepWorklet(t: number): number {
+  'worklet';
+  const x = Math.max(0, Math.min(1, t));
+  return x * x * (3 - 2 * x);
+}
 
 function lerpWorklet(a: number, b: number, t: number): number {
   'worklet';
-  return a + (b - a) * t;
+  return a + (b - a) * smoothstepWorklet(t);
 }
 
 function getSwayReachWorklet(stackHeight: number): number {

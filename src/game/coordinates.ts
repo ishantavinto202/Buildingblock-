@@ -107,3 +107,10 @@ export function computeCameraScrollY(canvasHeight: number, towerTopWorldY: numbe
   const anchorY = canvasHeight * CAMERA_ANCHOR_FRACTION;
   return Math.max(0, anchorY - towerTopWorldY);
 }
+
+/** JS-thread camera target (same formula as computeCameraScrollY worklet). */
+export function computeCameraScrollYJs(canvasHeight: number, towerTopWorldY: number): number {
+  if (canvasHeight <= 0) return 0;
+  const anchorY = canvasHeight * CAMERA_ANCHOR_FRACTION;
+  return Math.max(0, anchorY - towerTopWorldY);
+}

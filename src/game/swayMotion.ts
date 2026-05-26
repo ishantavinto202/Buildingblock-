@@ -25,35 +25,56 @@ export function spawnSwayOffsetWorklet(amplitude: number, spawnDirection: number
 }
 
 /**
- * Continuous ping-pong between lane bounds.
- * One half-crossing scales with halfPeriodMs / SWAY_HORIZONTAL_SPEED_MULT.
+ * Triangle-wave ping-pong from a monotonic clock — no per-frame integration drift or
+ * boundary overshoot (which caused brief reverse motion / micro-jitter).
  */
-export function tickPingPongSwayWorklet(
-  swayOffset: number,
-  traverseSign: number,
+export function computePingPongSwayFromElapsedWorklet(
+  elapsedMs: number,
   amplitude: number,
   halfPeriodMs: number,
-  deltaMs: number,
-): { swayOffset: number; traverseSign: number } {
+): { swayOffset: number; traverseSign: TraverseSignCode } {
   'worklet';
   if (amplitude <= 0) {
     return { swayOffset: 0, traverseSign: 1 };
   }
 
-  const periodMs = halfPeriodMs * 2;
-  const step = ((2 * amplitude * deltaMs) / periodMs) * SWAY_HORIZONTAL_SPEED_MULT;
-  let next = swayOffset + traverseSign * step;
-  let sign = traverseSign;
-
-  if (next >= amplitude) {
-    next = amplitude;
-    sign = -1;
-  } else if (next <= -amplitude) {
-    next = -amplitude;
-    sign = 1;
+  const periodMs = (halfPeriodMs * 2) / SWAY_HORIZONTAL_SPEED_MULT;
+  if (periodMs <= 0) {
+    return { swayOffset: 0, traverseSign: 1 };
   }
 
-  return { swayOffset: next, traverseSign: sign };
+  const t = elapsedMs % periodMs;
+  const half = periodMs * 0.5;
+
+  if (t < half) {
+    const u = t / half;
+    return { swayOffset: -amplitude + 2 * amplitude * u, traverseSign: 1 };
+  }
+
+  const u = (t - half) / half;
+  return { swayOffset: amplitude - 2 * amplitude * u, traverseSign: -1 };
+}
+
+/** Map a lane offset back onto the sway clock (after amplitude rescale). */
+export function swayElapsedForOffsetWorklet(
+  swayOffset: number,
+  amplitude: number,
+  halfPeriodMs: number,
+  traverseSign: number,
+): number {
+  'worklet';
+  if (amplitude <= 0) return 0;
+
+  const periodMs = (halfPeriodMs * 2) / SWAY_HORIZONTAL_SPEED_MULT;
+  if (periodMs <= 0) return 0;
+
+  const half = periodMs * 0.5;
+  const norm = Math.max(-1, Math.min(1, swayOffset / amplitude));
+
+  if (traverseSign >= 0) {
+    return ((norm + 1) * 0.5) * half;
+  }
+  return half + ((1 - norm) * 0.5) * half;
 }
 
 /** Preserve lane position when difficulty amplitude changes after a placement. */

@@ -1,7 +1,15 @@
 import { getBlockGameplayHWorklet } from './blockCatalog';
-import { MISS_FALL_GAME_OVER_DELAY_MS } from './constants';
+import {
+  FALL_SPEED_INITIAL,
+  FALL_SPEED_LATE_MAX,
+  FALL_SPEED_LATE_RAMP_BLOCKS,
+  FALL_SPEED_LATE_START_HEIGHT,
+  FALL_SPEED_MAX,
+  FALL_SPEED_RAMP_BLOCKS,
+  MISS_FALL_GAME_OVER_DELAY_MS,
+} from './constants';
 import { computeSpawnWorldY, getMaxSwayAmplitudePxWorklet } from './coordinates';
-import { tickPingPongSwayWorklet } from './swayMotion';
+import { computePingPongSwayFromElapsedWorklet } from './swayMotion';
 
 /** 0 = swaying (idle), 1 = falling, 2 = stopped, 3 = tipping off */
 export type LoopPhaseCode = 0 | 1 | 2 | 3;
@@ -26,13 +34,19 @@ export interface TickResult {
 }
 
 // Worklet-safe difficulty (must stay in sync with difficulty.ts SWAY_BREAKPOINTS)
-const SWAY_BP_HEIGHT = [0, 4, 8, 12, 16, 20] as const;
-const SWAY_BP_REACH = [0.86, 0.9, 0.93, 0.96, 0.98, 1.0] as const;
-const SWAY_BP_HALF = [950, 880, 780, 680, 580, 500] as const;
+const SWAY_BP_HEIGHT = [0, 10, 20, 30, 50, 75, 100] as const;
+const SWAY_BP_REACH = [0.74, 0.78, 0.85, 0.92, 0.94, 0.97, 1.0] as const;
+const SWAY_BP_HALF = [1350, 1260, 1100, 860, 780, 660, 560] as const;
+
+function smoothstepWorklet(t: number): number {
+  'worklet';
+  const x = Math.max(0, Math.min(1, t));
+  return x * x * (3 - 2 * x);
+}
 
 function lerpWorklet(a: number, b: number, t: number): number {
   'worklet';
-  return a + (b - a) * t;
+  return a + (b - a) * smoothstepWorklet(t);
 }
 
 function getSwayReachWorklet(stackHeight: number): number {
@@ -79,10 +93,24 @@ export function getSwayConfigWorklet(
   };
 }
 
+function getFallSpeedEarlyWorklet(stackHeight: number): number {
+  'worklet';
+  if (stackHeight <= 1) return FALL_SPEED_INITIAL;
+  const t = Math.min(1, (stackHeight - 1) / FALL_SPEED_RAMP_BLOCKS);
+  return FALL_SPEED_INITIAL + smoothstepWorklet(t) * (FALL_SPEED_MAX - FALL_SPEED_INITIAL);
+}
+
 function getFallSpeedWorklet(stackHeight: number): number {
   'worklet';
-  const increments = Math.floor(stackHeight / 5);
-  return Math.min(6 + increments * 0.3, 12);
+  if (stackHeight <= FALL_SPEED_LATE_START_HEIGHT) {
+    return getFallSpeedEarlyWorklet(stackHeight);
+  }
+  const anchor = getFallSpeedEarlyWorklet(FALL_SPEED_LATE_START_HEIGHT);
+  const t = Math.min(
+    1,
+    (stackHeight - FALL_SPEED_LATE_START_HEIGHT) / FALL_SPEED_LATE_RAMP_BLOCKS,
+  );
+  return anchor + smoothstepWorklet(t) * (FALL_SPEED_LATE_MAX - anchor);
 }
 
 /**
@@ -112,20 +140,15 @@ export function tickGameFrame(
 
   if (phase === LOOP_IDLE) {
     const { amplitude, halfPeriod } = getSwayConfigWorklet(stackHeight, canvasWidth);
-    const ping = tickPingPongSwayWorklet(
-      swayOffset,
-      traverseSign,
-      amplitude,
-      halfPeriod,
-      deltaMs,
-    );
+    const nextElapsed = swayElapsedMs + deltaMs;
+    const ping = computePingPongSwayFromElapsedWorklet(nextElapsed, amplitude, halfPeriod);
     return {
       phase: LOOP_IDLE,
       swayOffset: ping.swayOffset,
       traverseSign: ping.traverseSign,
-      fallY: computeSpawnWorldY(towerTopWorldY, fallingH),
+      fallY: fallWorldY,
       dropSwayOffset,
-      swayElapsedMs: swayElapsedMs + deltaMs,
+      swayElapsedMs: nextElapsed,
       isLanding: false,
       shouldLand: false,
       shouldEndMissFall: false,

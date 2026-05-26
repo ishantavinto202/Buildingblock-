@@ -24,6 +24,10 @@ export function TowerGameScreen() {
     swayOffset,
     swayAnchorCx,
     fallY,
+    activeFallingImageIndex,
+    fallingBlockMounted,
+    fallingBlockVisible,
+    fallingBlockW,
     tipBlockCx,
     tipBlockY,
     tipBlockAngle,
@@ -87,6 +91,10 @@ export function TowerGameScreen() {
                 swayOffset={swayOffset}
                 swayAnchorCx={swayAnchorCx}
                 fallY={fallY}
+                activeFallingImageIndex={activeFallingImageIndex}
+                fallingBlockMounted={fallingBlockMounted}
+                fallingBlockVisible={fallingBlockVisible}
+                fallingBlockW={fallingBlockW}
                 tipBlockCx={tipBlockCx}
                 tipBlockY={tipBlockY}
                 tipBlockAngle={tipBlockAngle}

@@ -29,11 +29,17 @@ export const TIP_TORQUE_ACCEL = 0.0035;
 export const TIP_FAIL_ANGLE_RAD = 1.05;
 
 /** Starting fall speed in px/frame (~60fps) */
-export const FALL_SPEED_INITIAL = 6;
-/** Speed increase per 5 blocks stacked */
-export const FALL_SPEED_INCREMENT = 0.3;
-/** Maximum fall speed cap */
+export const FALL_SPEED_INITIAL = 4;
+/** Stack height span for early fall-speed ramp (unchanged feel through ~30 placements) */
+export const FALL_SPEED_RAMP_BLOCKS = 50;
+/** Early-curve asymptote — defines pacing for stack heights ≤ LATE_START */
 export const FALL_SPEED_MAX = 12;
+/** Stack height where the softer late-game fall-speed phase begins */
+export const FALL_SPEED_LATE_START_HEIGHT = 31;
+/** Extra stack height after LATE_START to approach the late cap */
+export const FALL_SPEED_LATE_RAMP_BLOCKS = 80;
+/** Late-game fall speed cap (lower than early curve peak) */
+export const FALL_SPEED_LATE_MAX = 9.75;
 
 /** Duration of each sparkle particle animation in ms */
 export const PARTICLE_DURATION_MS = 600;
@@ -95,4 +101,4 @@ export const STARTING_LIVES = 3;
 export const BLOCK_PLACEMENT_TIMER_MS = 15_000;
 
 /** >1 = faster horizontal ping-pong (same bounds and difficulty curve) */
-export const SWAY_HORIZONTAL_SPEED_MULT = 1.28;
+export const SWAY_HORIZONTAL_SPEED_MULT = 1.08;

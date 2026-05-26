@@ -42,6 +42,10 @@ export interface GameCanvasProps {
   swayOffset: SharedValue<number>;
   swayAnchorCx: SharedValue<number>;
   fallY: SharedValue<number>;
+  activeFallingImageIndex: number;
+  fallingBlockMounted: boolean;
+  fallingBlockVisible: SharedValue<number>;
+  fallingBlockW: SharedValue<number>;
   tipBlockCx: SharedValue<number>;
   tipBlockY: SharedValue<number>;
   tipBlockAngle: SharedValue<number>;
@@ -100,6 +104,10 @@ export function GameCanvas({
   swayOffset,
   swayAnchorCx,
   fallY,
+  activeFallingImageIndex,
+  fallingBlockMounted,
+  fallingBlockVisible,
+  fallingBlockW,
   tipBlockCx,
   tipBlockY,
   tipBlockAngle,
@@ -138,7 +146,7 @@ export function GameCanvas({
     [width, height],
   );
 
-  const fallingIndex = gameState.nextImageIndex;
+  const fallingIndex = activeFallingImageIndex;
   const fallingSize = useMemo(() => getBlockGameplaySize(fallingIndex), [fallingIndex]);
   const tipSize = fallingSize;
 
@@ -147,11 +155,15 @@ export function GameCanvas({
     { translateY: cameraOffsetY.value + cameraShakeY.value },
   ]);
 
-  const fallingHalfW = fallingSize.w / 2;
-  const fallingTransform = useDerivedValue(() => [
-    { translateX: swayAnchorCx.value + swayOffset.value - fallingHalfW },
-    { translateY: fallY.value },
-  ]);
+  const fallingTransform = useDerivedValue(() => {
+    const halfW = fallingBlockW.value / 2;
+    return [
+      { translateX: swayAnchorCx.value + swayOffset.value - halfW },
+      { translateY: fallY.value },
+    ];
+  });
+
+  const fallingOpacity = useDerivedValue(() => (fallingBlockVisible.value === 1 ? 1 : 0));
 
   const tipHalfW = tipSize.w / 2;
   const tipHalfH = tipSize.h / 2;
@@ -214,7 +226,7 @@ export function GameCanvas({
             const { w, h } = getBlockGameplaySize(block.imageIndex);
             return (
               <Image
-                key={i}
+                key={`${i}-${block.imageIndex}-${block.y.toFixed(1)}`}
                 image={img}
                 x={block.cx - w / 2}
                 y={block.y}
@@ -226,8 +238,10 @@ export function GameCanvas({
           })}
         </Group>
 
-        {(gameState.phase === 'idle' || gameState.phase === 'dropping') && fallingImg && (
-          <Group transform={fallingTransform}>
+        {fallingBlockMounted &&
+          (gameState.phase === 'idle' || gameState.phase === 'dropping') &&
+          fallingImg && (
+          <Group transform={fallingTransform} opacity={fallingOpacity}>
             <Image
               image={fallingImg}
               x={0}
