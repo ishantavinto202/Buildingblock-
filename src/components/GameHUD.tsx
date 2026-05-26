@@ -1,18 +1,25 @@
 import React from 'react';
 import { Image, View, Text, StyleSheet, Pressable } from 'react-native';
+import { SharedValue } from 'react-native-reanimated';
 import { STARTING_LIVES } from '../game/constants';
 import { useScoreStore } from '../store/scoreStore';
+import { GameplayTimer } from './GameplayTimer';
 
 const LIFE_STAR_SOURCE = require('../../assets/images/Blue Start.png');
 const LIFE_STAR_SIZE = 24;
+const TOP_BAR_HORIZONTAL_PAD = 24;
+const TOP_BAR_TOP_GAP = 12;
 
 interface GameHUDProps {
   lives: number;
   isGameOver: boolean;
   onRestart: () => void;
   finalScore?: number;
-  /** Extra right inset so the pause button does not cover the best score */
-  topBarRightPadding?: number;
+  topInset?: number;
+  leftInset?: number;
+  rightInset?: number;
+  blockTimerRemainingMs?: SharedValue<number>;
+  showBlockTimer?: boolean;
 }
 
 function LivesIndicator({ lives }: { lives: number }) {
@@ -35,25 +42,41 @@ export function GameHUD({
   isGameOver,
   onRestart,
   finalScore,
-  topBarRightPadding = 0,
+  topInset = 0,
+  leftInset = 0,
+  rightInset = 0,
+  blockTimerRemainingMs,
+  showBlockTimer = false,
 }: GameHUDProps) {
   const { score, highScore, hasLoadedHighScore } = useScoreStore();
 
   return (
     <>
-      {/* Live score bar */}
       <View
-        style={[styles.topBar, { paddingRight: 24 + topBarRightPadding }]}
+        style={[
+          styles.topBar,
+          {
+            paddingTop: topInset + TOP_BAR_TOP_GAP,
+            paddingLeft: leftInset + TOP_BAR_HORIZONTAL_PAD,
+            paddingRight: rightInset + TOP_BAR_HORIZONTAL_PAD,
+          },
+        ]}
         pointerEvents="none"
       >
-        <Text style={styles.score}>{score}</Text>
-        <LivesIndicator lives={lives} />
-        <Text style={styles.highScore}>
-          {hasLoadedHighScore && highScore > 0 ? `BEST  ${highScore}` : 'BEST  --'}
-        </Text>
+        <View style={styles.scoreRow}>
+          <Text style={styles.score}>{score}</Text>
+          {blockTimerRemainingMs && (
+            <GameplayTimer remainingMs={blockTimerRemainingMs} visible={showBlockTimer} />
+          )}
+        </View>
+        <View style={styles.metaRow}>
+          <LivesIndicator lives={lives} />
+          <Text style={styles.highScore} numberOfLines={1}>
+            {hasLoadedHighScore && highScore > 0 ? `BEST  ${highScore}` : 'BEST  --'}
+          </Text>
+        </View>
       </View>
 
-      {/* Game over overlay */}
       {isGameOver && (
         <View style={styles.overlay}>
           <Text style={styles.gameOverTitle}>GAME OVER</Text>
@@ -75,23 +98,37 @@ export function GameHUD({
 const styles = StyleSheet.create({
   topBar: {
     position: 'absolute',
-    top: 52,
+    top: 0,
     left: 0,
     right: 0,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: 24,
     zIndex: 10,
   },
-  livesRow: {
-    position: 'absolute',
-    left: 0,
-    right: 0,
+  scoreRow: {
     flexDirection: 'row',
-    justifyContent: 'center',
+    alignItems: 'flex-end',
+    justifyContent: 'space-between',
+    width: '100%',
+  },
+  score: {
+    fontSize: 36,
+    fontWeight: '800',
+    color: '#FFFFFF',
+    letterSpacing: 2,
+    flexShrink: 0,
+  },
+  metaRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginTop: 8,
+    width: '100%',
+    minHeight: LIFE_STAR_SIZE,
+  },
+  livesRow: {
+    flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
+    flexShrink: 0,
   },
   lifeStar: {
     width: LIFE_STAR_SIZE,
@@ -100,18 +137,14 @@ const styles = StyleSheet.create({
   lifeStarEmpty: {
     opacity: 0.22,
   },
-  score: {
-    fontSize: 36,
-    fontWeight: '800',
-    color: '#FFFFFF',
-    letterSpacing: 2,
-  },
   highScore: {
     fontSize: 16,
     fontWeight: '600',
     color: 'rgba(255,255,255,0.55)',
-    alignSelf: 'center',
     letterSpacing: 1,
+    marginLeft: 16,
+    flexShrink: 1,
+    textAlign: 'right',
   },
   overlay: {
     ...StyleSheet.absoluteFillObject,

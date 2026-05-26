@@ -8,8 +8,6 @@ import { useTowerGame } from '../hooks/useTowerGame';
 import { useScoreStore } from '../store/scoreStore';
 import { GameCanvas } from './GameCanvas';
 import { GameHUD } from './GameHUD';
-import { PauseButton } from './PauseButton';
-import { PauseMenu } from './PauseMenu';
 import { PerfectScorePop } from './PerfectScorePop';
 import { StarPop } from './StarPop';
 
@@ -41,10 +39,8 @@ export function TowerGameScreen() {
     scoreTextY,
     scoreTextOpacity,
     perfectTrigger,
+    blockTimerRemainingMs,
     onTap,
-    pauseGame,
-    resumeGame,
-    restartGame,
     canvasWidth,
     canvasHeight,
     onLayout,
@@ -66,7 +62,11 @@ export function TowerGameScreen() {
   );
 
   const isGameOver = gameState?.phase === 'game_over';
-  const canPause = isReady && !isGameOver && gameState?.phase !== 'tipping' && !isPaused;
+  const showBlockTimer =
+    isReady &&
+    !isGameOver &&
+    !isPaused &&
+    (gameState?.phase === 'idle' || gameState?.phase === 'dropping');
 
   return (
     <View style={[styles.container, { backgroundColor: SKY_BACKGROUND_COLOR }]}>
@@ -113,27 +113,16 @@ export function TowerGameScreen() {
         </View>
       </GestureDetector>
 
-      {isReady && (
-        <PauseButton
-          onPress={pauseGame}
-          topInset={insets.top}
-          rightInset={insets.right}
-          disabled={!canPause}
-        />
-      )}
-
-      <PauseMenu
-        visible={isPaused}
-        onResume={resumeGame}
-        onRestart={restartGame}
-      />
-
       <GameHUD
         lives={lives}
         isGameOver={!!isGameOver}
         onRestart={onTap}
         finalScore={isGameOver ? score : undefined}
-        topBarRightPadding={isReady ? 56 : 0}
+        topInset={insets.top}
+        leftInset={insets.left}
+        rightInset={insets.right}
+        blockTimerRemainingMs={blockTimerRemainingMs}
+        showBlockTimer={showBlockTimer}
       />
       <StarPop trigger={perfectTrigger} />
     </View>

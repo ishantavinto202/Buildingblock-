@@ -91,5 +91,8 @@ export const LIFE_LOST_TIP_ANIMATION_MIN_MS = 800;
 /** Lives granted at the start of each run */
 export const STARTING_LIVES = 3;
 
+/** Time allowed to place the current swaying/falling block (ms) */
+export const BLOCK_PLACEMENT_TIMER_MS = 15_000;
+
 /** >1 = faster horizontal ping-pong (same bounds and difficulty curve) */
 export const SWAY_HORIZONTAL_SPEED_MULT = 1.28;
