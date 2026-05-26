@@ -69,10 +69,10 @@ export const CAMERA_SHAKE_MAX_Y_PX = 2;
 export const CAMERA_SHAKE_NEAR_COLLAPSE_HEIGHT = 14;
 export const CAMERA_SHAKE_NEAR_COLLAPSE_MULT = 1.35;
 
-/** Points for a plain landing */
-export const POINTS_LAND = 1;
-/** Bonus points for a perfect landing (in addition to POINTS_LAND) */
-export const POINTS_PERFECT_BONUS = 3;
+/** Points for a valid non-perfect stack (≥ MIN_STACK_OVERLAP_RATIO, < PERFECT_OVERLAP_RATIO) */
+export const NORMAL_POINTS = 100;
+/** Total points for a perfect stack (≥ PERFECT_OVERLAP_RATIO) — not added on top of NORMAL_POINTS */
+export const PERFECT_POINTS = 500;
 
 /** Per-frame lerp at 60fps for vertical camera follow (lower = smoother) */
 export const CAMERA_SMOOTH_FACTOR = 0.09;
@@ -84,6 +84,12 @@ export const MIN_DROP_DELAY_MS = 320;
 
 /** Extra fall time after a miss before game over (ms) */
 export const MISS_FALL_GAME_OVER_DELAY_MS = 750;
+
+/** Minimum unstable-tip animation time before respawn when lives remain (ms) */
+export const LIFE_LOST_TIP_ANIMATION_MIN_MS = 800;
+
+/** Lives granted at the start of each run */
+export const STARTING_LIVES = 3;
 
 /** >1 = faster horizontal ping-pong (same bounds and difficulty curve) */
 export const SWAY_HORIZONTAL_SPEED_MULT = 1.28;

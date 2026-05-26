@@ -1,8 +1,8 @@
 import {
   MIN_STACK_OVERLAP_RATIO,
+  NORMAL_POINTS,
   PERFECT_OVERLAP_RATIO,
-  POINTS_LAND,
-  POINTS_PERFECT_BONUS,
+  PERFECT_POINTS,
 } from './constants';
 import { getStackGroundY } from './basePlatform';
 import { getBlockGameplayH, getBlockGameplayW, pickRandomBlockIndex } from './blockCatalog';
@@ -113,7 +113,7 @@ export function landBlock(state: GameState, fallingCX: number): LandResult {
   }
 
   const perfect = overlap >= PERFECT_OVERLAP_RATIO;
-  const pointsAwarded = POINTS_LAND + (perfect ? POINTS_PERFECT_BONUS : 0);
+  const pointsAwarded = perfect ? PERFECT_POINTS : NORMAL_POINTS;
   const fallingH = getBlockGameplayH(fallingIdx);
 
   const newBlock: PlacedBlock = {

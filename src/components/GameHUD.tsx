@@ -1,8 +1,13 @@
 import React from 'react';
-import { View, Text, StyleSheet, Pressable } from 'react-native';
+import { Image, View, Text, StyleSheet, Pressable } from 'react-native';
+import { STARTING_LIVES } from '../game/constants';
 import { useScoreStore } from '../store/scoreStore';
 
+const LIFE_STAR_SOURCE = require('../../assets/images/Blue Start.png');
+const LIFE_STAR_SIZE = 24;
+
 interface GameHUDProps {
+  lives: number;
   isGameOver: boolean;
   onRestart: () => void;
   finalScore?: number;
@@ -10,7 +15,23 @@ interface GameHUDProps {
   topBarRightPadding?: number;
 }
 
+function LivesIndicator({ lives }: { lives: number }) {
+  return (
+    <View style={styles.livesRow} accessibilityLabel={`${lives} lives remaining`}>
+      {Array.from({ length: STARTING_LIVES }, (_, i) => (
+        <Image
+          key={i}
+          source={LIFE_STAR_SOURCE}
+          style={[styles.lifeStar, i >= lives && styles.lifeStarEmpty]}
+          resizeMode="contain"
+        />
+      ))}
+    </View>
+  );
+}
+
 export function GameHUD({
+  lives,
   isGameOver,
   onRestart,
   finalScore,
@@ -26,6 +47,7 @@ export function GameHUD({
         pointerEvents="none"
       >
         <Text style={styles.score}>{score}</Text>
+        <LivesIndicator lives={lives} />
         <Text style={styles.highScore}>
           {hasLoadedHighScore && highScore > 0 ? `BEST  ${highScore}` : 'BEST  --'}
         </Text>
@@ -58,8 +80,25 @@ const styles = StyleSheet.create({
     right: 0,
     flexDirection: 'row',
     justifyContent: 'space-between',
+    alignItems: 'center',
     paddingHorizontal: 24,
     zIndex: 10,
+  },
+  livesRow: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: 8,
+  },
+  lifeStar: {
+    width: LIFE_STAR_SIZE,
+    height: LIFE_STAR_SIZE,
+  },
+  lifeStarEmpty: {
+    opacity: 0.22,
   },
   score: {
     fontSize: 36,

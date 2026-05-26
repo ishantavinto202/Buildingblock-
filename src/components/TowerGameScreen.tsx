@@ -20,6 +20,7 @@ export function TowerGameScreen() {
 
   const {
     gameState,
+    lives,
     isReady,
     isPaused,
     swayOffset,
@@ -128,6 +129,7 @@ export function TowerGameScreen() {
       />
 
       <GameHUD
+        lives={lives}
         isGameOver={!!isGameOver}
         onRestart={onTap}
         finalScore={isGameOver ? score : undefined}

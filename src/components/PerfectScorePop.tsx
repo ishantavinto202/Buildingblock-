@@ -1,8 +1,8 @@
 import { StyleSheet } from 'react-native';
 import Animated, { SharedValue, useAnimatedStyle } from 'react-native-reanimated';
-import { POINTS_LAND, POINTS_PERFECT_BONUS } from '../game/constants';
+import { PERFECT_POINTS } from '../game/constants';
 
-const LABEL = `+${POINTS_LAND + POINTS_PERFECT_BONUS}`;
+const LABEL = `+${PERFECT_POINTS}`;
 
 interface PerfectScorePopProps {
   y: SharedValue<number>;
@@ -12,7 +12,7 @@ interface PerfectScorePopProps {
   canvasWidth: number;
 }
 
-/** Floating "+4" label driven by Reanimated shared values from the game hook. */
+/** Floating "+500" label driven by Reanimated shared values from the game hook. */
 export function PerfectScorePop({
   y,
   opacity,
